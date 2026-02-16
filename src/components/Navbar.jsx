@@ -14,6 +14,8 @@ export default function Navbar() {
       <Link to="/products" style={{ color: "white" }}>
       Product List
       </Link>
+
+      <Link to="/receipts" style={{ color: "white" }}>Receipts</Link>
     </div>
   );
 }
