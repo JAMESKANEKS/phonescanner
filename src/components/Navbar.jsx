@@ -7,8 +7,12 @@ export default function Navbar() {
         Add Product
       </Link>
 
-      <Link to="/pos" style={{ color: "white" }}>
+      <Link to="/pos" style={{ color: "white", marginRight: "20px" }}>
         POS
+      </Link>
+
+      <Link to="/products" style={{ color: "white" }}>
+      Product List
       </Link>
     </div>
   );
