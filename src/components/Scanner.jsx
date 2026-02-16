@@ -45,7 +45,7 @@ export default function Scanner() {
         // ⏱ Small delay to prevent ultra-rapid duplicates
         setTimeout(() => {
           scanCooldownRef.current = false;
-        }, 500); // 500ms between scans
+        }, 800); // 500ms between scans
       }
     );
 
