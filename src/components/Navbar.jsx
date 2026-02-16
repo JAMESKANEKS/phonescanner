@@ -11,7 +11,7 @@ export default function Navbar() {
         POS
       </Link>
 
-      <Link to="/products" style={{ color: "white" }}>
+      <Link to="/products" style={{ color: "white", marginRight: "20px" }}>
       Product List
       </Link>
 
