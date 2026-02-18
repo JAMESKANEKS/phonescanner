@@ -138,9 +138,10 @@ export default function ProductList() {
 
   // 📷 START BARCODE SCANNER
   const startScanner = () => {
-    if (scannerRef.current || !scannerContainerRef.current) return; // Prevent multiple scanners or if container not ready
+    if (scannerRef.current) return; // Prevent multiple scanners
 
-    const scanner = new Html5Qrcode(scannerContainerRef.current);
+    // Html5Qrcode expects a DOM element ID (string), not the element itself
+    const scanner = new Html5Qrcode("product-list-scanner");
     scannerRef.current = scanner;
 
     scanner.start(
@@ -195,7 +196,11 @@ export default function ProductList() {
       {isScanning && (
         <div style={{ marginBottom: "20px", border: "1px solid #ccc", padding: "10px", width: "320px" }}>
           <h3>Scan Barcode</h3>
-          <div ref={scannerContainerRef} style={{ width: "300px", height: "250px" }}></div>
+          <div
+            id="product-list-scanner"
+            ref={scannerContainerRef}
+            style={{ width: "300px", height: "250px" }}
+          ></div>
           <button onClick={stopScanner} style={{ marginTop: "10px", padding: "5px 10px" }}>
             Stop Scanning
           </button>
