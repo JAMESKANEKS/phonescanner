@@ -1,4 +1,4 @@
-import { useEffect, useContext, useRef } from "react";
+import { useEffect, useContext, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { db } from "../firebase/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
@@ -7,14 +7,20 @@ import { CartContext } from "../context/CartContext";
 export default function Scanner() {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
+  const scannerRef = useRef(null);
+  const [isScanning, setIsScanning] = useState(true);
 
   // Beep sound for every added product
   const beep = useRef(
     new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
   );
 
-  useEffect(() => {
+  const startScanner = () => {
+    if (scannerRef.current) return; // Prevent multiple scanners
+
     const scanner = new Html5Qrcode("reader");
+    scannerRef.current = scanner;
+    setIsScanning(true);
 
     scanner.start(
       { facingMode: "environment" },
@@ -54,12 +60,45 @@ export default function Scanner() {
         // ⏱ Small delay to prevent ultra-rapid duplicates
         setTimeout(() => {
           scanCooldownRef.current = false;
-        }, 800); // 500ms between scans
+        }, 800); // 800ms between scans
       }
-    );
+    ).catch((err) => {
+      console.error("Scanner start error:", err);
+      setIsScanning(false);
+      scannerRef.current = null;
+    });
+  };
 
-    return () => scanner.stop();
+  const stopScanner = () => {
+    if (scannerRef.current) {
+      scannerRef.current.stop().then(() => {
+        scannerRef.current = null;
+        setIsScanning(false);
+      }).catch((err) => {
+        console.error("Scanner stop error:", err);
+      });
+    }
+  };
+
+  useEffect(() => {
+    startScanner();
+
+    return () => {
+      stopScanner();
+    };
   }, []);
 
-  return <div id="reader" style={{ width: "300px" }} />;
+  return (
+    <div>
+      <div id="reader" style={{ width: "300px" }} />
+      {!isScanning && (
+        <button 
+          onClick={startScanner} 
+          style={{ marginTop: "10px", padding: "10px" }}
+        >
+          Restart Camera
+        </button>
+      )}
+    </div>
+  );
 }

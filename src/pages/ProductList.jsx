@@ -113,54 +113,63 @@ export default function ProductList() {
   };
 
   // 📷 START CAMERA SCAN
-  const startScan = () => {
-    setScanning(true); // toggle scanning on first click
-  };
+const startScan = () => {
+  // Clear any existing camera instance before starting
+  if (html5QrCodeRef.current) {
+    html5QrCodeRef.current.stop().catch(() => {});
+    html5QrCodeRef.current.clear().catch(() => {});
+    html5QrCodeRef.current = null;
+  }
+  setScanning(true); // trigger scanning and show camera
+};
 
-  // 🔹 HANDLE CAMERA START WHEN SCANNING TRUE
-  useEffect(() => {
-    if (!scanning) return;
-    if (!qrCodeRegionRef.current) return;
+// 🔹 HANDLE CAMERA START WHEN SCANNING TRUE
+useEffect(() => {
+  if (!scanning) return;
+  if (!qrCodeRegionRef.current) return;
 
-    const qrCodeRegionId = "qr-code-region";
-    html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
+  const qrCodeRegionId = "qr-code-region";
+  html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
 
-    html5QrCodeRef.current
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          // ✅ Fill input and filter products
-          setBarcodeSearch(decodedText);
-
-          // ✅ Stop camera immediately after scan
-          stopScan();
-        },
-        (errorMessage) => {
-          // ignore scan errors
-        }
-      )
-      .catch((err) => {
-        console.error("Camera start error:", err);
-        setScanning(false);
-      });
-
-    // Cleanup on unmount
-    return () => {
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear().catch(() => {});
+  html5QrCodeRef.current
+    .start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      (decodedText) => {
+        setBarcodeSearch(decodedText); // update input to filter product
+        stopScan(); // stop camera immediately after scan
+      },
+      (errorMessage) => {
+        // ignore scan errors
       }
-    };
-  }, [scanning]);
+    )
+    .catch((err) => {
+      console.error("Camera start error:", err);
+      setScanning(false);
+    });
 
-  const stopScan = () => {
+  // Cleanup on unmount
+  return () => {
     if (html5QrCodeRef.current) {
       html5QrCodeRef.current.stop().catch(() => {});
       html5QrCodeRef.current.clear().catch(() => {});
+      html5QrCodeRef.current = null;
     }
-    setScanning(false); // hides camera div immediately
   };
+}, [scanning]);
+
+// 🔹 STOP SCAN
+const stopScan = () => {
+  if (html5QrCodeRef.current) {
+    html5QrCodeRef.current.stop().catch(() => {});
+    html5QrCodeRef.current.clear().catch(() => {});
+    html5QrCodeRef.current = null;
+  }
+
+  // Slight delay to let React update DOM
+  setTimeout(() => setScanning(false), 100);
+};
+
 
   return (
     <div>
