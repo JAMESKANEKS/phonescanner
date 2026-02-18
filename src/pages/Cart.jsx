@@ -5,7 +5,7 @@ import { db } from "../firebase/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default function Cart() {
-  const { cart, setCart, addToCart, decreaseQuantity, removeItem } = useContext(CartContext);
+  const { cart, addToCart, decreaseQuantity, removeItem, clearCart } = useContext(CartContext);
   const navigate = useNavigate();
 
   const total = cart.reduce(
@@ -33,7 +33,7 @@ export default function Cart() {
 
       const docRef = await addDoc(collection(db, "sales"), saleData);
 
-      setCart([]);
+      clearCart();
       navigate(`/receipt/${docRef.id}`);
     } catch (err) {
       console.error("Error saving sale:", err);
