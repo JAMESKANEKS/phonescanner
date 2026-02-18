@@ -12,6 +12,7 @@ export default function ProductList() {
   const [editData, setEditData] = useState({});
   const [barcodeSearch, setBarcodeSearch] = useState("");
   const [scanning, setScanning] = useState(false);
+
   const barcodeRefs = useRef({});
   const qrCodeRegionRef = useRef(null);
   const html5QrCodeRef = useRef(null);
@@ -22,18 +23,15 @@ export default function ProductList() {
       const snapshot = await getDocs(collection(db, "products"));
       const list = [];
       const hiddenState = {};
-
       snapshot.forEach((doc) => {
         const data = { id: doc.id, ...doc.data() };
         list.push(data);
         hiddenState[doc.id] = true;
       });
-
       setProducts(list);
       setFilteredProducts(list);
       setHiddenBarcodes(hiddenState);
     };
-
     fetchProducts();
   }, []);
 
@@ -71,19 +69,15 @@ export default function ProductList() {
     }));
   };
 
-  // ✏️ START EDIT
+  // ✏️ EDIT FUNCTIONS
   const startEdit = (product) => {
     setEditingId(product.id);
     setEditData(product);
   };
-
-  // ❌ CANCEL EDIT
   const cancelEdit = () => {
     setEditingId(null);
     setEditData({});
   };
-
-  // 💾 SAVE EDIT
   const saveEdit = async () => {
     const productRef = doc(db, "products", editingId);
     await updateDoc(productRef, {
@@ -113,63 +107,46 @@ export default function ProductList() {
   };
 
   // 📷 START CAMERA SCAN
-const startScan = () => {
-  // Clear any existing camera instance before starting
-  if (html5QrCodeRef.current) {
-    html5QrCodeRef.current.stop().catch(() => {});
-    html5QrCodeRef.current.clear().catch(() => {});
-    html5QrCodeRef.current = null;
-  }
-  setScanning(true); // trigger scanning and show camera
-};
-
-// 🔹 HANDLE CAMERA START WHEN SCANNING TRUE
-useEffect(() => {
-  if (!scanning) return;
-  if (!qrCodeRegionRef.current) return;
-
-  const qrCodeRegionId = "qr-code-region";
-  html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
-
-  html5QrCodeRef.current
-    .start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      (decodedText) => {
-        setBarcodeSearch(decodedText); // update input to filter product
-        stopScan(); // stop camera immediately after scan
-      },
-      (errorMessage) => {
-        // ignore scan errors
-      }
-    )
-    .catch((err) => {
-      console.error("Camera start error:", err);
-      setScanning(false);
-    });
-
-  // Cleanup on unmount
-  return () => {
-    if (html5QrCodeRef.current) {
-      html5QrCodeRef.current.stop().catch(() => {});
-      html5QrCodeRef.current.clear().catch(() => {});
-      html5QrCodeRef.current = null;
-    }
+  const startScan = () => {
+    if (scanning) return; // already scanning
+    setScanning(true);
   };
-}, [scanning]);
 
-// 🔹 STOP SCAN
-const stopScan = () => {
-  if (html5QrCodeRef.current) {
-    html5QrCodeRef.current.stop().catch(() => {});
-    html5QrCodeRef.current.clear().catch(() => {});
-    html5QrCodeRef.current = null;
-  }
+  // 🔹 HANDLE CAMERA WHEN SCANNING TRUE
+  useEffect(() => {
+    if (!scanning) return;
+    if (!qrCodeRegionRef.current) return;
 
-  // Slight delay to let React update DOM
-  setTimeout(() => setScanning(false), 100);
-};
+    const qrCodeRegionId = "qr-code-region";
 
+    html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
+
+    html5QrCodeRef.current
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          setBarcodeSearch(decodedText); // update input to filter products
+          // DO NOT stop camera, keep scanning for multiple barcodes
+        },
+        (errorMessage) => {
+          // ignore scan errors
+        }
+      )
+      .catch((err) => {
+        console.error("Camera start error:", err);
+        setScanning(false);
+      });
+
+    // cleanup on unmount
+    return () => {
+      if (html5QrCodeRef.current) {
+        html5QrCodeRef.current.stop().catch(() => {});
+        html5QrCodeRef.current.clear().catch(() => {});
+        html5QrCodeRef.current = null;
+      }
+    };
+  }, [scanning]);
 
   return (
     <div>
@@ -184,8 +161,12 @@ const stopScan = () => {
           onChange={(e) => setBarcodeSearch(e.target.value)}
           style={{ padding: "8px", width: "250px" }}
         />
-        <button onClick={startScan} style={{ marginLeft: "5px", padding: "8px" }}>
-          Scan
+        <button
+          onClick={startScan}
+          style={{ marginLeft: "5px", padding: "8px" }}
+          disabled={scanning}
+        >
+          {scanning ? "Scanning..." : "Scan"}
         </button>
         <button
           onClick={() => setBarcodeSearch("")}
@@ -215,7 +196,6 @@ const stopScan = () => {
             <th>Action</th>
           </tr>
         </thead>
-
         <tbody>
           {filteredProducts.map((product) => (
             <tr key={product.id}>
@@ -224,7 +204,9 @@ const stopScan = () => {
               <td>{editingId === product.id ? <input type="number" value={editData.stock} onChange={(e) => setEditData({ ...editData, stock: e.target.value })} /> : product.stock}</td>
               <td>{!hiddenBarcodes[product.id] ? <svg ref={(el) => (barcodeRefs.current[product.id] = el)}></svg> : <span>Hidden</span>}</td>
               <td>
-                <button onClick={() => toggleBarcode(product.id)}>{hiddenBarcodes[product.id] ? "Show Barcode" : "Hide Barcode"}</button>
+                <button onClick={() => toggleBarcode(product.id)}>
+                  {hiddenBarcodes[product.id] ? "Show Barcode" : "Hide Barcode"}
+                </button>
                 {editingId === product.id ? (
                   <>
                     <button onClick={saveEdit}>Save</button>
