@@ -201,7 +201,15 @@ export default function Cart() {
       navigate(`/receipt/${docRef.id}`);
     } catch (err) {
       console.error("Error completing sale:", err);
-      alert("Failed to complete sale. Check console for details.");
+      if (err.code === 'permission-denied') {
+        alert("Permission denied: You don't have access to complete sales.");
+      } else if (err.code === 'unavailable') {
+        alert("Service unavailable: Please check your internet connection.");
+      } else if (err.code === 'resource-exhausts') {
+        alert("Quota exceeded: Please try again later.");
+      } else {
+        alert("Error completing sale: " + err.message);
+      }
     }
   };
 

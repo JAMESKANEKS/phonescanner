@@ -103,7 +103,15 @@ export default function ProductList() {
       alert("Product deleted successfully!");
     } catch (err) {
       console.error("Error deleting product:", err);
-      alert("Failed to delete product. Check console for details.");
+      if (err.code === 'permission-denied') {
+        alert("Permission denied: You don't have access to products.");
+      } else if (err.code === 'unavailable') {
+        alert("Service unavailable: Please check your internet connection.");
+      } else if (err.code === 'not-found') {
+        alert("Products collection not found. Please contact support.");
+      } else {
+        alert("Error deleting product: " + err.message);
+      }
     }
   };
 

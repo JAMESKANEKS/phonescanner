@@ -100,7 +100,15 @@ export default function AddProduct() {
       setBarcode("");
     } catch (error) {
       console.error("Error saving product:", error);
-      alert("Failed to save product");
+      if (error.code === 'permission-denied') {
+        alert("Permission denied: You don't have access to add products.");
+      } else if (error.code === 'unavailable') {
+        alert("Service unavailable: Please check your internet connection.");
+      } else if (error.code === 'resource-exhausts') {
+        alert("Quota exceeded: Please try again later.");
+      } else {
+        alert("Error saving product: " + error.message);
+      }
     }
   };
 

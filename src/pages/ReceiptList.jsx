@@ -30,6 +30,15 @@ export default function ReceiptList() {
       setSales(list);
     } catch (err) {
       console.error("Error fetching receipts:", err);
+      if (err.code === 'permission-denied') {
+        alert("Permission denied: You don't have access to receipts.");
+      } else if (err.code === 'unavailable') {
+        alert("Service unavailable: Please check your internet connection.");
+      } else if (err.code === 'not-found') {
+        alert("Receipts collection not found. Please contact support.");
+      } else {
+        alert("Error loading receipts: " + err.message);
+      }
     }
   };
 
@@ -47,7 +56,15 @@ export default function ReceiptList() {
       alert("Receipt deleted successfully!");
     } catch (err) {
       console.error("Error deleting receipt:", err);
-      alert("Failed to delete receipt. Check console for details.");
+      if (err.code === 'permission-denied') {
+        alert("Permission denied: You don't have access to delete receipts.");
+      } else if (err.code === 'unavailable') {
+        alert("Service unavailable: Please check your internet connection.");
+      } else if (err.code === 'not-found') {
+        alert("Receipt not found. It may have been already deleted.");
+      } else {
+        alert("Error deleting receipt: " + err.message);
+      }
     }
   };
 

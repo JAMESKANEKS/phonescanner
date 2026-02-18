@@ -42,7 +42,15 @@ export default function POS() {
       setManualBarcode(""); // clear input
     } catch (err) {
       console.error("Error fetching product:", err);
-      alert("Failed to fetch product");
+      if (err.code === 'permission-denied') {
+        alert("Permission denied: You don't have access to products.");
+      } else if (err.code === 'unavailable') {
+        alert("Service unavailable: Please check your internet connection.");
+      } else if (err.code === 'not-found') {
+        alert("Product not found. It may have been deleted.");
+      } else {
+        alert("Error fetching product: " + err.message);
+      }
     }
   };
 

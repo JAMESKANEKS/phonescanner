@@ -26,6 +26,15 @@ export default function Receipt() {
         }
       } catch (err) {
         console.error("Error fetching receipt:", err);
+        if (err.code === 'permission-denied') {
+          alert("Permission denied: You don't have access to this receipt.");
+        } else if (err.code === 'unavailable') {
+          alert("Service unavailable: Please check your internet connection.");
+        } else if (err.code === 'not-found') {
+          alert("Receipt not found: This receipt may have been deleted or doesn't exist.");
+        } else {
+          alert("Error loading receipt: " + err.message);
+        }
       } finally {
         setLoading(false);
       }

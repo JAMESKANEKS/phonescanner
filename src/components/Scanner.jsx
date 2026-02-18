@@ -55,6 +55,15 @@ export default function Scanner() {
           }
         } catch (err) {
           console.error("Scan error:", err);
+          if (err.code === 'permission-denied') {
+            alert("Permission denied: You don't have access to camera or products.");
+          } else if (err.code === 'unavailable') {
+            alert("Service unavailable: Please check your internet connection.");
+          } else if (err.code === 'not-found') {
+            alert("Product not found. It may have been deleted.");
+          } else {
+            alert("Error scanning product: " + err.message);
+          }
         }
 
         // ⏱ Small delay to prevent ultra-rapid duplicates
