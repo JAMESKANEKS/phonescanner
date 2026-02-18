@@ -129,14 +129,25 @@ export default function ProductList() {
     if (!qrCodeRegionRef.current) return;
 
     const qrCodeRegionId = "qr-code-region";
-    html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
+    const html5Qrcode = new Html5Qrcode(qrCodeRegionId);
+    html5QrCodeRef.current = html5Qrcode;
 
-    html5QrCodeRef.current
+    html5Qrcode
       .start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         (decodedText) => {
           setBarcodeSearch(decodedText); // update input to filter products
+          // Stop camera after successful scan (same as AddProduct)
+          html5Qrcode.stop().then(() => {
+            html5Qrcode.clear().then(() => {
+              setScanning(false);
+            }).catch(() => {
+              setScanning(false);
+            });
+          }).catch(() => {
+            setScanning(false);
+          });
         },
         (errorMessage) => {
           // ignore scan errors
@@ -147,7 +158,7 @@ export default function ProductList() {
         setScanning(false);
       });
 
-    // Cleanup function for when component unmounts or scanning stops
+    // Cleanup function for when component unmounts
     return () => {
       if (html5QrCodeRef.current) {
         html5QrCodeRef.current.stop().catch(() => {});
@@ -156,18 +167,6 @@ export default function ProductList() {
       }
     };
   }, [scanning]);
-
-  // 🔹 CLEANUP ON COMPONENT UNMOUNT
-  useEffect(() => {
-    return () => {
-      // Ensure camera is stopped when navigating away
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear().catch(() => {});
-        html5QrCodeRef.current = null;
-      }
-    };
-  }, []);
 
   return (
     <div>
@@ -189,14 +188,6 @@ export default function ProductList() {
         >
           {scanning ? "Scanning..." : "Scan"}
         </button>
-        {scanning && (
-          <button 
-            onClick={stopScan} 
-            style={{ marginLeft: "5px", padding: "8px", backgroundColor: "red", color: "white" }}
-          >
-            Stop Camera
-          </button>
-        )}
         <button
           onClick={() => setBarcodeSearch("")}
           style={{ marginLeft: "5px", padding: "8px" }}
