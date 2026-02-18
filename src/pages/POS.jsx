@@ -9,6 +9,7 @@ export default function POS() {
   const { cart, addToCart } = useContext(CartContext); 
   const navigate = useNavigate();
   const [manualBarcode, setManualBarcode] = useState("");
+  const [scannerActive, setScannerActive] = useState(false);
 
   // ✅ Add product manually by barcode
   const handleAddManualBarcode = async () => {
@@ -59,17 +60,31 @@ export default function POS() {
     <div>
       <h1 className="pos-page-title">POS Terminal</h1>
 
+      {/* Headless scanner logic – renders into #reader inside the frame */}
+      <Scanner active={scannerActive} />
+
       <div className="pos-layout-row">
         {/* Left column: scanner + manual barcode */}
         <div style={{ flex: "1 1 340px" }}>
           <div className="pos-card">
             <div className="pos-card-header">
               <span>Scanner</span>
-              <span className="pos-badge">Live</span>
+              <span className="pos-badge">
+                {scannerActive ? "Live" : "Idle"}
+              </span>
             </div>
 
             <div className="pos-scanner-frame">
               <div id="reader" className="pos-scanner-target" />
+            </div>
+
+            <div className="pos-mt-md pos-text-right">
+              <button
+                className={scannerActive ? "pos-button-secondary" : "pos-button"}
+                onClick={() => setScannerActive((prev) => !prev)}
+              >
+                {scannerActive ? "Stop Scanner" : "Start Scanner"}
+              </button>
             </div>
 
             <div className="pos-mt-md">

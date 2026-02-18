@@ -4,7 +4,7 @@ import { db } from "../firebase/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
-export default function Scanner() {
+export default function Scanner({ active }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
@@ -15,87 +15,115 @@ export default function Scanner() {
     new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
   );
 
-  const startScanner = () => {
+  const startScanner = async () => {
     if (scannerRef.current) return; // Prevent multiple scanners
+
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        alert("No camera detected. Please connect a camera and try again.");
+        setIsScanning(false);
+        return;
+      }
+    } catch (err) {
+      console.error("Error checking cameras:", err);
+      alert("Unable to access cameras. Please check browser permissions.");
+      setIsScanning(false);
+      return;
+    }
 
     const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
     setIsScanning(true);
 
-    scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      async (barcode) => {
-        if (scanCooldownRef.current) return; // Prevent overlapping scans
+    scanner
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        async (barcode) => {
+          if (scanCooldownRef.current) return; // Prevent overlapping scans
 
-        scanCooldownRef.current = true; // Set cooldown
+          scanCooldownRef.current = true; // Set cooldown
 
-        try {
-          // 🔎 Search product in Firestore
-          const q = query(collection(db, "products"), where("barcode", "==", barcode));
-          const snapshot = await getDocs(q);
+          try {
+            // 🔎 Search product in Firestore
+            const q = query(
+              collection(db, "products"),
+              where("barcode", "==", barcode)
+            );
+            const snapshot = await getDocs(q);
 
-          if (!snapshot.empty) {
-            snapshot.forEach(async (docSnapshot) => {
-              const productData = docSnapshot.data();
-              const currentStock = productData.stock || 0;
-              
-              // 🔍 CHECK STOCK AVAILABILITY
-              if (currentStock <= 0) {
-                alert(`⚠️ Product "${productData.name}" is out of stock!`);
-                return;
-              }
+            if (!snapshot.empty) {
+              snapshot.forEach(async (docSnapshot) => {
+                const productData = docSnapshot.data();
+                const currentStock = productData.stock || 0;
 
-              addToCart({ id: docSnapshot.id, ...productData });
+                // 🔍 CHECK STOCK AVAILABILITY
+                if (currentStock <= 0) {
+                  alert(`⚠️ Product "${productData.name}" is out of stock!`);
+                  return;
+                }
 
-              // ✅ Play beep every time a product is added
-              beep.current.currentTime = 0; // reset for overlapping
-              beep.current.play();
-            });
+                addToCart({ id: docSnapshot.id, ...productData });
+
+                // ✅ Play beep every time a product is added
+                beep.current.currentTime = 0; // reset for overlapping
+                beep.current.play();
+              });
+            }
+          } catch (err) {
+            console.error("Scan error:", err);
+            if (err.code === "permission-denied") {
+              alert("Permission denied: You don't have access to camera or products.");
+            } else if (err.code === "unavailable") {
+              alert("Service unavailable: Please check your internet connection.");
+            } else if (err.code === "not-found") {
+              alert("Product not found. It may have been deleted.");
+            } else {
+              alert("Error scanning product: " + err.message);
+            }
           }
-        } catch (err) {
-          console.error("Scan error:", err);
-          if (err.code === 'permission-denied') {
-            alert("Permission denied: You don't have access to camera or products.");
-          } else if (err.code === 'unavailable') {
-            alert("Service unavailable: Please check your internet connection.");
-          } else if (err.code === 'not-found') {
-            alert("Product not found. It may have been deleted.");
-          } else {
-            alert("Error scanning product: " + err.message);
-          }
+
+          // ⏱ Small delay to prevent ultra-rapid duplicates
+          setTimeout(() => {
+            scanCooldownRef.current = false;
+          }, 800); // 800ms between scans
         }
-
-        // ⏱ Small delay to prevent ultra-rapid duplicates
-        setTimeout(() => {
-          scanCooldownRef.current = false;
-        }, 800); // 800ms between scans
-      }
-    ).catch((err) => {
-      console.error("Scanner start error:", err);
-      setIsScanning(false);
-      scannerRef.current = null;
-    });
+      )
+      .catch((err) => {
+        console.error("Scanner start error:", err);
+        setIsScanning(false);
+        scannerRef.current = null;
+      });
   };
 
   const stopScanner = () => {
     if (scannerRef.current) {
-      scannerRef.current.stop().then(() => {
-        scannerRef.current = null;
-        setIsScanning(false);
-      }).catch((err) => {
-        console.error("Scanner stop error:", err);
-      });
+      scannerRef.current
+        .stop()
+        .then(() => {
+          scannerRef.current = null;
+          setIsScanning(false);
+        })
+        .catch((err) => {
+          console.error("Scanner stop error:", err);
+        });
     }
   };
 
+  // React to `active` prop to start/stop
   useEffect(() => {
-    startScanner();
+    if (active) {
+      startScanner();
+    } else {
+      stopScanner();
+    }
 
     return () => {
+      // Cleanup on unmount
       stopScanner();
     };
-  }, []);
+  }, [active]);
 
   return null;
 }

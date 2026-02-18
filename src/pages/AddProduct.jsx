@@ -33,7 +33,19 @@ export default function AddProduct() {
   };
 
   // 🔍 Scan Barcode from Camera
-  const startScan = () => {
+  const startScan = async () => {
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        alert("No camera detected. Please connect a camera and try again.");
+        return;
+      }
+    } catch (err) {
+      console.error("Error checking cameras:", err);
+      alert("Unable to access cameras. Please check browser permissions.");
+      return;
+    }
+
     setScanning(true);
     const html5Qrcode = new Html5Qrcode("barcode-scanner");
 

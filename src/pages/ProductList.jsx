@@ -137,28 +137,44 @@ export default function ProductList() {
   };
 
   // 📷 START BARCODE SCANNER
-  const startScanner = () => {
+  const startScanner = async () => {
     if (scannerRef.current) return; // Prevent multiple scanners
+
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        alert("No camera detected. Please connect a camera and try again.");
+        setIsScanning(false);
+        return;
+      }
+    } catch (err) {
+      console.error("Error checking cameras:", err);
+      alert("Unable to access cameras. Please check browser permissions.");
+      setIsScanning(false);
+      return;
+    }
 
     // Html5Qrcode expects a DOM element ID (string), not the element itself
     const scanner = new Html5Qrcode("product-list-scanner");
     scannerRef.current = scanner;
 
-    scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      (barcode) => {
-        setSearchBarcode(barcode);
-        stopScanner();
-      },
-      (error) => {
-        console.log("Scan error:", error);
-      }
-    ).catch((err) => {
-      console.error("Error starting scanner:", err);
-      alert("Error starting camera scanner. Please check camera permissions.");
-      setIsScanning(false);
-    });
+    scanner
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (barcode) => {
+          setSearchBarcode(barcode);
+          stopScanner();
+        },
+        (error) => {
+          console.log("Scan error:", error);
+        }
+      )
+      .catch((err) => {
+        console.error("Error starting scanner:", err);
+        alert("Error starting camera scanner. Please check camera permissions.");
+        setIsScanning(false);
+      });
   };
 
   // 🛑 STOP BARCODE SCANNER
