@@ -8,6 +8,12 @@ import Navbar from "./components/Navbar";
 import { CartProvider } from "./context/CartContext";
 import Dashboard from "./pages/Dashboard";
 import Cart from "./pages/Cart";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import ConnectionStatus from "./components/ConnectionStatus";
+import { offlineStorage } from "./services/offlineStorage";
+
+// Initialize offline storage
+offlineStorage.init().catch(console.error);
 
 export default function App() {
   return (
@@ -26,6 +32,8 @@ export default function App() {
               <Route path="/cart" element={<Cart />} />
             </Routes>
           </main>
+          <PWAInstallPrompt />
+          <ConnectionStatus />
         </div>
       </BrowserRouter>
     </CartProvider>
