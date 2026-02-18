@@ -114,13 +114,12 @@ export default function ProductList() {
 
   // 📷 START CAMERA SCAN
   const startScan = () => {
-    setScanning(true); // just toggle scanning, actual camera start in useEffect
+    setScanning(true); // toggle scanning on first click
   };
 
   // 🔹 HANDLE CAMERA START WHEN SCANNING TRUE
   useEffect(() => {
     if (!scanning) return;
-
     if (!qrCodeRegionRef.current) return;
 
     const qrCodeRegionId = "qr-code-region";
@@ -131,7 +130,10 @@ export default function ProductList() {
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         (decodedText) => {
+          // ✅ Fill input and filter products
           setBarcodeSearch(decodedText);
+
+          // ✅ Stop camera immediately after scan
           stopScan();
         },
         (errorMessage) => {
@@ -157,7 +159,7 @@ export default function ProductList() {
       html5QrCodeRef.current.stop().catch(() => {});
       html5QrCodeRef.current.clear().catch(() => {});
     }
-    setScanning(false);
+    setScanning(false); // hides camera div immediately
   };
 
   return (
@@ -173,10 +175,7 @@ export default function ProductList() {
           onChange={(e) => setBarcodeSearch(e.target.value)}
           style={{ padding: "8px", width: "250px" }}
         />
-        <button
-          onClick={startScan}
-          style={{ marginLeft: "5px", padding: "8px" }}
-        >
+        <button onClick={startScan} style={{ marginLeft: "5px", padding: "8px" }}>
           Scan
         </button>
         <button
@@ -196,6 +195,7 @@ export default function ProductList() {
         ></div>
       )}
 
+      {/* 🔹 PRODUCT TABLE */}
       <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%" }}>
         <thead>
           <tr>
