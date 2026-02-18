@@ -2,19 +2,26 @@ import { useState, useRef } from "react";
 import JsBarcode from "jsbarcode";
 import { Html5Qrcode } from "html5-qrcode";
 import { db } from "../firebase/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 
 export default function AddProduct() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
   const [barcode, setBarcode] = useState("");
   const barcodeRef = useRef(null);
   const scannerRef = useRef(null);
   const [scanning, setScanning] = useState(false);
 
-  // 🔥 Generate Barcode
+  // 🔥 Generate Unique Barcode
   const generateBarcode = () => {
-    const code = Date.now().toString(); // unique code
+    const code = Date.now().toString();
     setBarcode(code);
 
     JsBarcode(barcodeRef.current, code, {
@@ -30,48 +37,71 @@ export default function AddProduct() {
     setScanning(true);
     const html5Qrcode = new Html5Qrcode("barcode-scanner");
 
-    html5Qrcode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      (scannedCode) => {
-        setBarcode(scannedCode);
+    html5Qrcode
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (scannedCode) => {
+          setBarcode(scannedCode);
 
-        // Show barcode image
-        JsBarcode(barcodeRef.current, scannedCode, {
-          format: "CODE128",
-          width: 2,
-          height: 60,
-          displayValue: true,
-        });
+          JsBarcode(barcodeRef.current, scannedCode, {
+            format: "CODE128",
+            width: 2,
+            height: 60,
+            displayValue: true,
+          });
 
-        html5Qrcode.stop();
+          html5Qrcode.stop();
+          setScanning(false);
+        }
+      )
+      .catch((err) => {
+        console.error("Scanner error:", err);
         setScanning(false);
-      }
-    ).catch((err) => {
-      console.error("Scanner error:", err);
-      setScanning(false);
-    });
+      });
 
     scannerRef.current = html5Qrcode;
   };
 
+  // 💾 SAVE PRODUCT (PREVENT DUPLICATE BARCODE)
   const saveProduct = async () => {
-    if (!name || !price || !barcode) {
-      alert("Please fill all fields and generate or scan barcode!");
+    if (!name || !price || !barcode || stock === "") {
+      alert("Fill all fields!");
       return;
     }
 
-    await addDoc(collection(db, "products"), {
-      name,
-      price: Number(price),
-      barcode,
-      stock: 0,
-    });
+    try {
+      // 🔎 CHECK IF BARCODE EXISTS
+      const q = query(
+        collection(db, "products"),
+        where("barcode", "==", barcode)
+      );
 
-    alert("Product Added!");
-    setName("");
-    setPrice("");
-    setBarcode("");
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        alert("⚠️ Barcode already exists!");
+        return;
+      }
+
+      // ✅ SAVE IF UNIQUE
+      await addDoc(collection(db, "products"), {
+        name,
+        price: Number(price),
+        stock: Number(stock),
+        barcode,
+      });
+
+      alert("✅ Product Added!");
+
+      setName("");
+      setPrice("");
+      setStock("");
+      setBarcode("");
+    } catch (error) {
+      console.error("Error saving product:", error);
+      alert("Failed to save product");
+    }
   };
 
   return (
@@ -91,6 +121,13 @@ export default function AddProduct() {
         onChange={(e) => setPrice(e.target.value)}
       />
 
+      <input
+        placeholder="Stock Quantity"
+        type="number"
+        value={stock}
+        onChange={(e) => setStock(e.target.value)}
+      />
+
       <br /><br />
 
       <button onClick={generateBarcode}>
@@ -105,7 +142,6 @@ export default function AddProduct() {
 
       <svg ref={barcodeRef}></svg>
 
-      {/* Scanner preview */}
       <div id="barcode-scanner" style={{ width: "300px", height: "250px" }}></div>
 
       <br /><br />

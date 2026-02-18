@@ -1,7 +1,7 @@
 import { useEffect, useContext, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { db } from "../firebase/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
 export default function Scanner() {
@@ -30,8 +30,17 @@ export default function Scanner() {
           const snapshot = await getDocs(q);
 
           if (!snapshot.empty) {
-            snapshot.forEach((doc) => {
-              addToCart({ id: doc.id, ...doc.data() });
+            snapshot.forEach(async (docSnapshot) => {
+              const productData = docSnapshot.data();
+              const currentStock = productData.stock || 0;
+              
+              // 🔍 CHECK STOCK AVAILABILITY
+              if (currentStock <= 0) {
+                alert(`⚠️ Product "${productData.name}" is out of stock!`);
+                return;
+              }
+
+              addToCart({ id: docSnapshot.id, ...productData });
 
               // ✅ Play beep every time a product is added
               beep.current.currentTime = 0; // reset for overlapping

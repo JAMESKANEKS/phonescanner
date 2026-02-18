@@ -13,7 +13,7 @@ export default function Receipt() {
       try {
         const docRef = doc(db, "sales", id);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           const data = docSnap.data();
           setSale({
@@ -31,18 +31,13 @@ export default function Receipt() {
       }
     };
 
-    if (id) {
-      fetchSale();
-    } else {
-      setLoading(false);
-    }
+    if (id) fetchSale();
+    else setLoading(false);
   }, [id]);
 
-  if (loading) {
-    return <p>Loading receipt...</p>;
-  }
+  if (loading) return <p>Loading receipt...</p>;
 
-  if (!sale) {
+  if (!sale)
     return (
       <div style={{ padding: "20px" }}>
         <p>Receipt not found.</p>
@@ -51,19 +46,22 @@ export default function Receipt() {
         </Link>
       </div>
     );
-  }
 
   return (
     <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
       <div style={{ border: "1px solid #ccc", padding: "20px", borderRadius: "8px" }}>
         <h2 style={{ textAlign: "center", marginBottom: "20px" }}>SALE RECEIPT</h2>
-        
+
         <div style={{ marginBottom: "20px" }}>
           <p><strong>Receipt ID:</strong> {sale.id}</p>
           <p><strong>Date:</strong> {sale.date.toLocaleString()}</p>
         </div>
 
-        <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%", marginBottom: "20px" }}>
+        <table
+          border="1"
+          cellPadding="8"
+          style={{ borderCollapse: "collapse", width: "100%", marginBottom: "20px" }}
+        >
           <thead>
             <tr>
               <th>Item</th>
@@ -85,7 +83,13 @@ export default function Receipt() {
         </table>
 
         <div style={{ textAlign: "right", fontSize: "18px", fontWeight: "bold" }}>
-          <p><strong>Total: ₱{sale.total.toFixed(2)}</strong></p>
+          <p>Total: ₱{sale.total.toFixed(2)}</p>
+          {sale.cash && (
+            <>
+              <p>Cash: ₱{sale.cash.toFixed(2)}</p>
+              <p>Change: ₱{sale.change.toFixed(2)}</p>
+            </>
+          )}
         </div>
 
         <div style={{ textAlign: "center", marginTop: "30px" }}>

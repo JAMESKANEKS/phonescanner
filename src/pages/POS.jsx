@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import Scanner from "../components/Scanner";
 import { CartContext } from "../context/CartContext";
 import { db } from "../firebase/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 export default function POS() {
@@ -22,9 +22,18 @@ export default function POS() {
         return alert("Product not found!");
       }
 
-      const productData = snapshot.docs[0].data();
+      const productDoc = snapshot.docs[0];
+      const productData = productDoc.data();
+      const currentStock = productData.stock || 0;
+
+      // 🔍 CHECK STOCK AVAILABILITY
+      if (currentStock <= 0) {
+        alert(`⚠️ Product "${productData.name}" is out of stock!`);
+        return;
+      }
+
       const product = {
-        id: snapshot.docs[0].id,
+        id: productDoc.id,
         name: productData.name,
         price: productData.price,
       };

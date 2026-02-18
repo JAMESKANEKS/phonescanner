@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import {
   LineChart,
   Line,
@@ -8,108 +8,150 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  ResponsiveContainer,
 } from "recharts";
 
 export default function Dashboard() {
-  const [dailyEarnings, setDailyEarnings] = useState(0);
-  const [todayTransactions, setTodayTransactions] = useState(0);
-  const [chartData, setChartData] = useState([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [topProducts, setTopProducts] = useState([]);
+  const [chartData, setChartData] = useState([]);
 
+  // 🔥 Fetch ALL sales on first load
   useEffect(() => {
-    const fetchData = async () => {
-      const snapshot = await getDocs(collection(db, "sales"));
-
-      let todayTotal = 0;
-      let todayCount = 0;
-
-      const today = new Date().toDateString();
-
-      const earningsByDay = {};
-      const productCount = {};
-
-      snapshot.forEach((doc) => {
-        const sale = doc.data();
-
-        if (!sale.date) return;
-
-        const saleDate = sale.date.toDate();
-        const day = saleDate.toDateString();
-
-        // 🔹 Daily earnings
-        if (day === today) {
-          todayTotal += sale.total;
-          todayCount++;
-        }
-
-        // 🔹 Chart data (earnings per day)
-        earningsByDay[day] = (earningsByDay[day] || 0) + sale.total;
-
-        // 🔹 Top selling products
-        sale.items.forEach((item) => {
-          productCount[item.name] =
-            (productCount[item.name] || 0) + item.quantity;
-        });
-      });
-
-      setDailyEarnings(todayTotal);
-      setTodayTransactions(todayCount);
-
-      // 🔹 Convert earnings to chart format
-      const chart = Object.keys(earningsByDay).map((day) => ({
-        day,
-        earnings: earningsByDay[day],
-      }));
-
-      setChartData(chart);
-
-      // 🔹 Top products sorted
-      const sortedProducts = Object.entries(productCount)
-        .map(([name, qty]) => ({ name, qty }))
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 5);
-
-      setTopProducts(sortedProducts);
-    };
-
-    fetchData();
+    fetchSales();
   }, []);
 
+  const fetchSales = async () => {
+    let q;
+
+    // ✅ If no date → ALL TIME
+    if (!fromDate || !toDate) {
+      q = collection(db, "sales");
+    } else {
+      const start = new Date(fromDate);
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+
+      q = query(
+        collection(db, "sales"),
+        where("date", ">=", start),
+        where("date", "<=", end)
+      );
+    }
+
+    const snapshot = await getDocs(q);
+
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    calculateStats(data);
+  };
+
+  // 🔥 Calculate dashboard stats
+  const calculateStats = (data) => {
+    let earnings = 0;
+    let productCount = 0;
+    let productMap = {};
+    let dailyMap = {};
+
+    data.forEach((sale) => {
+      earnings += sale.total;
+
+      const day = new Date(sale.date.seconds * 1000)
+        .toLocaleDateString();
+
+      dailyMap[day] = (dailyMap[day] || 0) + sale.total;
+
+      sale.items.forEach((item) => {
+        productCount += item.quantity;
+        productMap[item.name] =
+          (productMap[item.name] || 0) + item.quantity;
+      });
+    });
+
+    setTotalEarnings(earnings);
+    setTotalProducts(productCount);
+
+    // 🔥 Top products
+    const sortedProducts = Object.entries(productMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    setTopProducts(sortedProducts);
+
+    // 📈 Chart data
+    const chart = Object.entries(dailyMap).map(([date, total]) => ({
+      date,
+      total,
+    }));
+
+    setChartData(chart);
+  };
+
   return (
-    <div>
-      <h1>Advanced Dashboard</h1>
+    <div style={{ padding: "20px" }}>
+      <h1>📊 Dashboard (All Time)</h1>
 
-      {/* DAILY EARNINGS */}
-      <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
-        <div style={{ padding: "20px", background: "#eee" }}>
-          <h3>Today's Earnings</h3>
-          <h2>₱{dailyEarnings}</h2>
-        </div>
+      {/* 🔥 Date Picker */}
+      <div style={{ marginBottom: "20px" }}>
+        <label>From: </label>
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+        />
 
-        <div style={{ padding: "20px", background: "#eee" }}>
-          <h3>Today's Transactions</h3>
-          <h2>{todayTransactions}</h2>
-        </div>
+        <label style={{ marginLeft: "10px" }}>To: </label>
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+        />
+
+        <button onClick={fetchSales} style={{ marginLeft: "10px" }}>
+          Apply
+        </button>
+
+        <button
+          onClick={() => {
+            setFromDate("");
+            setToDate("");
+            fetchSales();
+          }}
+          style={{ marginLeft: "10px" }}
+        >
+          Reset (All Time)
+        </button>
       </div>
 
-      {/* SALES CHART */}
-      <h2 style={{ marginTop: "40px" }}>Sales Chart</h2>
+      {/* 💰 Stats */}
+      <h2>💰 Earnings: ₱{totalEarnings}</h2>
+      <h2>📦 Products Sold: {totalProducts}</h2>
 
-      <LineChart width={600} height={300} data={chartData}>
-        <CartesianGrid stroke="#ccc" />
-        <XAxis dataKey="day" />
-        <YAxis />
-        <Tooltip />
-        <Line type="monotone" dataKey="earnings" stroke="#8884d8" />
-      </LineChart>
+      {/* 📈 Chart */}
+      <h2>📈 Sales Chart</h2>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={chartData}>
+          <CartesianGrid stroke="#ccc" />
+          <XAxis dataKey="date" />
+          <YAxis />
+          <Tooltip />
+          <Line type="monotone" dataKey="total" stroke="#8884d8" />
+        </LineChart>
+      </ResponsiveContainer>
 
-      {/* TOP SELLING PRODUCTS */}
-      <h2 style={{ marginTop: "40px" }}>Top Selling Products</h2>
-
+      {/* 🔥 Top Products */}
+      <h2>🔥 Top Products</h2>
       <ul>
-        {topProducts.map((p, i) => (
-          <li key={i}>
-            {p.name} — Sold: {p.qty}
+        {topProducts.map(([name, qty]) => (
+          <li key={name}>
+            {name} — {qty} sold
           </li>
         ))}
       </ul>
