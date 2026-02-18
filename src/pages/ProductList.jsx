@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import JsBarcode from "jsbarcode";
+import { Html5Qrcode } from "html5-qrcode";
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -9,8 +10,11 @@ export default function ProductList() {
   const [hiddenBarcodes, setHiddenBarcodes] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
+  const [searchBarcode, setSearchBarcode] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
 
   const barcodeRefs = useRef({});
+  const scannerRef = useRef(null);
 
   // 🔥 FETCH PRODUCTS
   const fetchProducts = async () => {
@@ -29,6 +33,29 @@ export default function ProductList() {
 
   useEffect(() => {
     fetchProducts();
+  }, []);
+
+  // 🔥 FILTER PRODUCTS BASED ON SEARCH BARCODE
+  useEffect(() => {
+    if (searchBarcode.trim() === "") {
+      setFilteredProducts(products);
+    } else {
+      const filtered = products.filter((product) =>
+        product.barcode.toLowerCase().includes(searchBarcode.toLowerCase())
+      );
+      setFilteredProducts(filtered);
+    }
+  }, [products, searchBarcode]);
+
+  // 🧹 CLEANUP SCANNER ON UNMOUNT
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().then(() => {
+          scannerRef.current.clear();
+        }).catch((err) => console.error("Error cleaning up scanner:", err));
+      }
+    };
   }, []);
 
 
@@ -99,11 +126,65 @@ export default function ProductList() {
     }
   };
 
+  // 📷 START BARCODE SCANNER
+  const startScanner = () => {
+    if (scannerRef.current) return; // Prevent multiple scanners
+
+    const scanner = new Html5Qrcode("barcode-reader");
+    scannerRef.current = scanner;
+    setIsScanning(true);
+
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      (barcode) => {
+        setSearchBarcode(barcode);
+        stopScanner();
+      },
+      (error) => {
+        console.log("Scan error:", error);
+      }
+    ).catch((err) => {
+      console.error("Error starting scanner:", err);
+      alert("Error starting camera scanner. Please check camera permissions.");
+      setIsScanning(false);
+    });
+  };
+
+  // 🛑 STOP BARCODE SCANNER
+  const stopScanner = () => {
+    if (scannerRef.current) {
+      scannerRef.current.stop().then(() => {
+        scannerRef.current.clear();
+        scannerRef.current = null;
+        setIsScanning(false);
+      }).catch((err) => {
+        console.error("Error stopping scanner:", err);
+      });
+    }
+  };
+
 
   return (
     <div>
       <h1>Product List</h1>
 
+      {/* 🔍 SEARCH BARCODE */}
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="text"
+          placeholder="Enter or scan barcode to search"
+          value={searchBarcode}
+          onChange={(e) => setSearchBarcode(e.target.value)}
+          style={{ padding: "8px", marginRight: "10px", width: "200px" }}
+        />
+        <button onClick={isScanning ? stopScanner : startScanner}>
+          {isScanning ? "Stop Scanning" : "Scan Barcode"}
+        </button>
+        {isScanning && (
+          <div id="barcode-reader" style={{ width: "300px", marginTop: "10px" }}></div>
+        )}
+      </div>
 
       {/* 🔹 PRODUCT TABLE */}
       <div style={{ overflowX: "auto" }}>
