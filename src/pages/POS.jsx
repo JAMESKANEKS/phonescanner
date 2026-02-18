@@ -1,13 +1,12 @@
 import { useContext, useState } from "react";
 import Scanner from "../components/Scanner";
-import Cart from "../components/Cart";
 import { CartContext } from "../context/CartContext";
 import { db } from "../firebase/firebase";
-import { collection, addDoc, query, where, getDocs, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 export default function POS() {
-  const { cart, setCart, addToCart } = useContext(CartContext); 
+  const { cart, addToCart } = useContext(CartContext); 
   const navigate = useNavigate();
   const [manualBarcode, setManualBarcode] = useState("");
 
@@ -38,36 +37,6 @@ export default function POS() {
     }
   };
 
-  // ✅ Sold Now button
-  const handleSoldNow = async () => {
-    if (cart.length === 0) {
-      alert("Cart is empty!");
-      return;
-    }
-
-    try {
-      const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-      const saleData = {
-        items: cart.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        total,
-        date: serverTimestamp(),
-      };
-
-      const docRef = await addDoc(collection(db, "sales"), saleData);
-
-      setCart([]);
-      navigate(`/receipt/${docRef.id}`);
-    } catch (err) {
-      console.error("Error saving sale:", err);
-      alert("Failed to save sale. Check console for error.");
-    }
-  };
 
   return (
     <div>
@@ -94,15 +63,15 @@ export default function POS() {
       <Scanner />
 
       {/* Cart Component */}
-      <Cart />
-
-      {/* Sold Now Button */}
-      <button
-        onClick={handleSoldNow}
-        style={{ marginTop: "20px", padding: "10px 20px", fontSize: "16px" }}
-      >
-        Sold Now
-      </button>
+      <div style={{ marginTop: "20px" }}>
+        <p>Items in cart: {cart.length}</p>
+        <button
+          onClick={() => navigate("/cart")}
+          style={{ padding: "10px 20px", fontSize: "16px" }}
+        >
+          View Cart
+        </button>
+      </div>
     </div>
   );
 }

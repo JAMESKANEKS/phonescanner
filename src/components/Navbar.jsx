@@ -15,7 +15,13 @@ export default function Navbar() {
       Product List
       </Link>
 
-      <Link to="/receipts" style={{ color: "white" }}>Receipts</Link>
+      <Link to="/receipts" style={{ color: "white", marginRight: "15px" }}>Receipts</Link>
+
+      <Link to="/cart" style={{ color: "white", marginRight: "15px" }}>Cart</Link>
+
+      <Link to="/dashboard" style={{ color: "white", marginRight: "15px" }}>
+  Dashboard
+</Link>
     </div>
   );
 }
