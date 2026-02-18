@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import JsBarcode from "jsbarcode";
-import { Html5Qrcode } from "html5-qrcode"; // Make sure to install: npm install html5-qrcode
+import { Html5Qrcode } from "html5-qrcode";
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -14,6 +14,7 @@ export default function ProductList() {
   const [scanning, setScanning] = useState(false);
   const barcodeRefs = useRef({});
   const qrCodeRegionRef = useRef(null);
+  const html5QrCodeRef = useRef(null);
 
   // 🔥 FETCH PRODUCTS
   useEffect(() => {
@@ -113,29 +114,50 @@ export default function ProductList() {
 
   // 📷 START CAMERA SCAN
   const startScan = () => {
-    setScanning(true);
-    const html5QrCode = new Html5Qrcode("qr-code-region");
+    setScanning(true); // just toggle scanning, actual camera start in useEffect
+  };
 
-    html5QrCode
+  // 🔹 HANDLE CAMERA START WHEN SCANNING TRUE
+  useEffect(() => {
+    if (!scanning) return;
+
+    if (!qrCodeRegionRef.current) return;
+
+    const qrCodeRegionId = "qr-code-region";
+    html5QrCodeRef.current = new Html5Qrcode(qrCodeRegionId);
+
+    html5QrCodeRef.current
       .start(
         { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: 250,
-        },
+        { fps: 10, qrbox: 250 },
         (decodedText) => {
-          setBarcodeSearch(decodedText); // Fill the input automatically
-          html5QrCode.stop();
-          setScanning(false);
+          setBarcodeSearch(decodedText);
+          stopScan();
         },
         (errorMessage) => {
-          // console.log("Scan error", errorMessage);
+          // ignore scan errors
         }
       )
       .catch((err) => {
         console.error("Camera start error:", err);
         setScanning(false);
       });
+
+    // Cleanup on unmount
+    return () => {
+      if (html5QrCodeRef.current) {
+        html5QrCodeRef.current.stop().catch(() => {});
+        html5QrCodeRef.current.clear().catch(() => {});
+      }
+    };
+  }, [scanning]);
+
+  const stopScan = () => {
+    if (html5QrCodeRef.current) {
+      html5QrCodeRef.current.stop().catch(() => {});
+      html5QrCodeRef.current.clear().catch(() => {});
+    }
+    setScanning(false);
   };
 
   return (
@@ -167,7 +189,11 @@ export default function ProductList() {
 
       {/* 🔹 CAMERA SCAN REGION */}
       {scanning && (
-        <div id="qr-code-region" style={{ width: "300px", height: "300px", marginBottom: "15px" }} ref={qrCodeRegionRef}></div>
+        <div
+          id="qr-code-region"
+          style={{ width: "300px", height: "300px", marginBottom: "15px" }}
+          ref={qrCodeRegionRef}
+        ></div>
       )}
 
       <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%" }}>
