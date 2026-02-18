@@ -15,6 +15,7 @@ export default function ProductList() {
 
   const barcodeRefs = useRef({});
   const scannerRef = useRef(null);
+  const scannerContainerRef = useRef(null);
 
   // 🔥 FETCH PRODUCTS
   const fetchProducts = async () => {
@@ -52,11 +53,20 @@ export default function ProductList() {
     return () => {
       if (scannerRef.current) {
         scannerRef.current.stop().then(() => {
-          scannerRef.current.clear();
+          scannerRef.current = null;
         }).catch((err) => console.error("Error cleaning up scanner:", err));
       }
     };
   }, []);
+
+  // 📷 START SCANNER WHEN isScanning CHANGES TO TRUE
+  useEffect(() => {
+    if (isScanning && scannerContainerRef.current) {
+      startScanner();
+    } else if (!isScanning) {
+      stopScanner();
+    }
+  }, [isScanning]);
 
 
   // 🔥 GENERATE BARCODE WHEN SHOWN
@@ -128,11 +138,10 @@ export default function ProductList() {
 
   // 📷 START BARCODE SCANNER
   const startScanner = () => {
-    if (scannerRef.current) return; // Prevent multiple scanners
+    if (scannerRef.current || !scannerContainerRef.current) return; // Prevent multiple scanners or if container not ready
 
-    const scanner = new Html5Qrcode("barcode-reader");
+    const scanner = new Html5Qrcode(scannerContainerRef.current);
     scannerRef.current = scanner;
-    setIsScanning(true);
 
     scanner.start(
       { facingMode: "environment" },
@@ -155,7 +164,6 @@ export default function ProductList() {
   const stopScanner = () => {
     if (scannerRef.current) {
       scannerRef.current.stop().then(() => {
-        scannerRef.current.clear();
         scannerRef.current = null;
         setIsScanning(false);
       }).catch((err) => {
@@ -178,13 +186,21 @@ export default function ProductList() {
           onChange={(e) => setSearchBarcode(e.target.value)}
           style={{ padding: "8px", marginRight: "10px", width: "200px" }}
         />
-        <button onClick={isScanning ? stopScanner : startScanner}>
+        <button onClick={() => setIsScanning(!isScanning)}>
           {isScanning ? "Stop Scanning" : "Scan Barcode"}
         </button>
-        {isScanning && (
-          <div id="barcode-reader" style={{ width: "300px", marginTop: "10px" }}></div>
-        )}
       </div>
+
+      {/* 📷 BARCODE SCANNER */}
+      {isScanning && (
+        <div style={{ marginBottom: "20px", border: "1px solid #ccc", padding: "10px", width: "320px" }}>
+          <h3>Scan Barcode</h3>
+          <div ref={scannerContainerRef} style={{ width: "300px", height: "250px" }}></div>
+          <button onClick={stopScanner} style={{ marginTop: "10px", padding: "5px 10px" }}>
+            Stop Scanning
+          </button>
+        </div>
+      )}
 
       {/* 🔹 PRODUCT TABLE */}
       <div style={{ overflowX: "auto" }}>
