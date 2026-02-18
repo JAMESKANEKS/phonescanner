@@ -1,0 +1,293 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #333 0, #111 40%, #000 100%);
+  color: #f5f5f5;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.pos-app-shell {
+  width: 100%;
+  max-width: 1200px;
+  margin: 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1b1f2a, #10131a);
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pos-main {
+  flex: 1;
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+}
+
+.pos-page-title {
+  margin: 0 0 18px;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e5f3ff;
+}
+
+.pos-layout-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.pos-card {
+  background: radial-gradient(circle at top left, #293243, #141925);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.pos-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9fb4ff;
+}
+
+.pos-label {
+  font-size: 13px;
+  color: #aab2c5;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+.pos-input,
+.pos-input-sm {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #31384a;
+  background: #090b11;
+  color: #f6f8ff;
+  padding: 10px 11px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.pos-input-sm {
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.pos-input:focus,
+.pos-input-sm:focus {
+  border-color: #36c2ff;
+  box-shadow: 0 0 0 1px rgba(54, 194, 255, 0.8);
+  background: #05060b;
+}
+
+.pos-input::placeholder,
+.pos-input-sm::placeholder {
+  color: #666f88;
+}
+
+.pos-button,
+.pos-button-secondary,
+.pos-button-danger {
+  border-radius: 999px;
+  border: none;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.pos-button {
+  background: linear-gradient(135deg, #1fe6a8, #0fb4ff);
+  color: #031015;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.8);
+}
+
+.pos-button-secondary {
+  background: #202637;
+  color: #e0e6ff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.pos-button-danger {
+  background: linear-gradient(135deg, #ff4d6a, #d01932);
+  color: #fff5f7;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.9);
+}
+
+.pos-button:hover,
+.pos-button-secondary:hover,
+.pos-button-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.9);
+  opacity: 0.96;
+}
+
+.pos-button:active,
+.pos-button-secondary:active,
+.pos-button-danger:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+  opacity: 0.9;
+}
+
+.pos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  background: rgba(18, 195, 255, 0.15);
+  color: #9fe5ff;
+}
+
+.pos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pos-table thead {
+  background: rgba(12, 17, 30, 0.9);
+}
+
+.pos-table th,
+.pos-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(56, 64, 90, 0.7);
+}
+
+.pos-table th {
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: #9fb3ff;
+}
+
+.pos-table tbody tr:nth-child(even) {
+  background: rgba(10, 15, 28, 0.7);
+}
+
+.pos-table tbody tr:hover {
+  background: rgba(24, 32, 52, 0.95);
+}
+
+.pos-total-row {
+  text-align: right;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1fe6a8;
+}
+
+.pos-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(10, 182, 255, 0.18);
+  color: #d6f3ff;
+}
+
+.pos-scanner-frame {
+  width: 320px;
+  max-width: 100%;
+  height: 260px;
+  border-radius: 18px;
+  background: radial-gradient(circle at center, #0b2438 0, #02060b 55%, #000 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 255, 255, 0.06),
+    0 24px 45px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.pos-scanner-frame::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(120, 233, 255, 0.6);
+  box-shadow: 0 0 16px rgba(0, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.pos-scanner-target {
+  width: 100%;
+  height: 100%;
+}
+
+.pos-flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pos-mt-md {
+  margin-top: 16px;
+}
+
+.pos-mt-lg {
+  margin-top: 24px;
+}
+
+.pos-text-right {
+  text-align: right;
+}
+
+.pos-muted {
+  color: #8188a0;
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .pos-main {
+    padding: 14px 14px 18px;
+  }
+
+  .pos-page-title {
+    font-size: 20px;
+  }
+}
+

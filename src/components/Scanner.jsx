@@ -97,17 +97,5 @@ export default function Scanner() {
     };
   }, []);
 
-  return (
-    <div>
-      <div id="reader" style={{ width: "300px" }} />
-      {!isScanning && (
-        <button 
-          onClick={startScanner} 
-          style={{ marginTop: "10px", padding: "10px" }}
-        >
-          Restart Camera
-        </button>
-      )}
-    </div>
-  );
+  return null;
 }

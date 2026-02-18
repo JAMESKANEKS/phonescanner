@@ -174,69 +174,57 @@ export default function ReceiptList() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Transactions</h1>
+    <div>
+      <h1 className="pos-page-title">Transactions</h1>
       {sales.length === 0 ? (
-        <p>No receipts yet.</p>
+        <p className="pos-muted">No receipts yet.</p>
       ) : (
-        <table
-          border="1"
-          cellPadding="8"
-          style={{ borderCollapse: "collapse", width: "100%" }}
-        >
-          <thead>
-            <tr>
-              <th>Receipt ID</th>
-              <th>Date</th>
-              <th>Total</th>
-              <th>Cash</th>
-              <th>Change</th>
-              <th>Items Count</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sales.map((sale) => (
-              <tr key={sale.id}>
-                <td>{sale.id}</td>
-                <td>{sale.date.toLocaleString()}</td>
-                <td>₱{sale.total.toFixed(2)}</td>
-                <td>₱{sale.cash ? sale.cash.toFixed(2) : 0}</td>
-                <td>₱{sale.change ? sale.change.toFixed(2) : 0}</td>
-                <td>{sale.items ? sale.items.length : 0}</td>
-                <td style={{ display: "flex", gap: "10px" }}>
-                  <Link to={`/receipt/${sale.id}`}>
-                    <button style={{ padding: "5px 10px" }}>View</button>
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(sale.id)}
-                    style={{
-                      padding: "5px 10px",
-                      backgroundColor: "red",
-                      color: "white",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    onClick={() => handlePrint(sale)}
-                    style={{
-                      padding: "5px 10px",
-                      backgroundColor: "#28a745",
-                      color: "white",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Print
-                  </button>
-                </td>
+        <div className="pos-card" style={{ overflowX: "auto" }}>
+          <table className="pos-table">
+            <thead>
+              <tr>
+                <th>Receipt ID</th>
+                <th>Date</th>
+                <th>Total</th>
+                <th>Cash</th>
+                <th>Change</th>
+                <th>Items</th>
+                <th>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sales.map((sale) => (
+                <tr key={sale.id}>
+                  <td>{sale.id}</td>
+                  <td>{sale.date.toLocaleString()}</td>
+                  <td>₱{sale.total.toFixed(2)}</td>
+                  <td>₱{sale.cash ? sale.cash.toFixed(2) : 0}</td>
+                  <td>₱{sale.change ? sale.change.toFixed(2) : 0}</td>
+                  <td>{sale.items ? sale.items.length : 0}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <Link to={`/receipt/${sale.id}`}>
+                        <button className="pos-button-secondary">View</button>
+                      </Link>
+                      <button
+                        className="pos-button-danger"
+                        onClick={() => handleDelete(sale.id)}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        className="pos-button"
+                        onClick={() => handlePrint(sale)}
+                      >
+                        Print
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

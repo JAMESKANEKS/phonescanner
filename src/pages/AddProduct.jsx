@@ -114,49 +114,90 @@ export default function AddProduct() {
 
   return (
     <div>
-      <h1>Add Product</h1>
+      <h1 className="pos-page-title">Inventory &amp; Barcodes</h1>
 
-      <input
-        placeholder="Product Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
+      <div className="pos-layout-row">
+        {/* Product form */}
+        <div style={{ flex: "1 1 320px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>New product</span>
+            </div>
 
-      <input
-        placeholder="Price"
-        type="number"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-      />
+            <div className="pos-mt-md">
+              <div className="pos-label">Product name</div>
+              <input
+                className="pos-input"
+                placeholder="Ex. iPhone 15 Pro Max"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
 
-      <input
-        placeholder="Stock Quantity"
-        type="number"
-        value={stock}
-        onChange={(e) => setStock(e.target.value)}
-      />
+            <div className="pos-mt-md pos-layout-row">
+              <div style={{ flex: 1, minWidth: 120 }}>
+                <div className="pos-label">Price</div>
+                <input
+                  className="pos-input"
+                  placeholder="₱0.00"
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 120 }}>
+                <div className="pos-label">Stock</div>
+                <input
+                  className="pos-input"
+                  placeholder="0"
+                  type="number"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value)}
+                />
+              </div>
+            </div>
 
-      <br /><br />
+            <div className="pos-mt-lg pos-flex-between">
+              <button className="pos-button-secondary" onClick={generateBarcode}>
+                Generate Barcode
+              </button>
+              <button
+                className="pos-button-secondary"
+                onClick={startScan}
+                disabled={scanning}
+              >
+                {scanning ? "Scanning..." : "Scan Barcode"}
+              </button>
+              <button className="pos-button" onClick={saveProduct}>
+                Save Product
+              </button>
+            </div>
+          </div>
+        </div>
 
-      <button onClick={generateBarcode}>
-        Generate Barcode
-      </button>
+        {/* Barcode preview / scanner */}
+        <div style={{ flex: "1 1 300px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>Barcode preview</span>
+            </div>
 
-      <button onClick={startScan} disabled={scanning}>
-        {scanning ? "Scanning..." : "Scan Barcode"}
-      </button>
+            <div className="pos-mt-md" style={{ textAlign: "center" }}>
+              <svg ref={barcodeRef}></svg>
+            </div>
 
-      <br /><br />
-
-      <svg ref={barcodeRef}></svg>
-
-      <div id="barcode-scanner" style={{ width: "300px", height: "250px" }}></div>
-
-      <br /><br />
-
-      <button onClick={saveProduct}>
-        Save Product
-      </button>
+            <div className="pos-mt-md">
+              <div className="pos-label">Camera barcode capture</div>
+              <div className="pos-scanner-frame">
+                <div
+                  id="barcode-scanner"
+                  className="pos-scanner-target"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

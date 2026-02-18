@@ -57,37 +57,64 @@ export default function POS() {
 
   return (
     <div>
-      <h1>POS System</h1>
+      <h1 className="pos-page-title">POS Terminal</h1>
 
-      {/* Manual Barcode Input */}
-      <div style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          placeholder="Enter barcode manually"
-          value={manualBarcode}
-          onChange={(e) => setManualBarcode(e.target.value)}
-          style={{ padding: "5px", width: "200px" }}
-        />
-        <button
-          onClick={handleAddManualBarcode}
-          style={{ padding: "5px 10px", marginLeft: "10px" }}
-        >
-          Add Product
-        </button>
-      </div>
+      <div className="pos-layout-row">
+        {/* Left column: scanner + manual barcode */}
+        <div style={{ flex: "1 1 340px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>Scanner</span>
+              <span className="pos-badge">Live</span>
+            </div>
 
-      {/* Scanner Component */}
-      <Scanner />
+            <div className="pos-scanner-frame">
+              <div id="reader" className="pos-scanner-target" />
+            </div>
 
-      {/* Cart Component */}
-      <div style={{ marginTop: "20px" }}>
-        <p>Items in cart: {cart.length}</p>
-        <button
-          onClick={() => navigate("/cart")}
-          style={{ padding: "10px 20px", fontSize: "16px" }}
-        >
-          View Cart
-        </button>
+            <div className="pos-mt-md">
+              <div className="pos-label">Manual barcode</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="text"
+                  placeholder="Type barcode here"
+                  value={manualBarcode}
+                  onChange={(e) => setManualBarcode(e.target.value)}
+                  className="pos-input"
+                />
+                <button className="pos-button" onClick={handleAddManualBarcode}>
+                  Add
+                </button>
+              </div>
+              <div className="pos-muted pos-mt-md">
+                Use either the camera scanner or type the barcode to add items.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column: cart summary */}
+        <div style={{ flex: "1 1 260px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>Cart Overview</span>
+              <span className="pos-chip">{cart.length} items</span>
+            </div>
+
+            <p className="pos-muted">
+              Scan products to build your cart, then proceed to checkout.
+            </p>
+
+            <div className="pos-mt-lg pos-text-right">
+              <button
+                className="pos-button-secondary"
+                onClick={() => navigate("/cart")}
+              >
+                Open Cart
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

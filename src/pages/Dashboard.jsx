@@ -17,13 +17,25 @@ export default function Dashboard() {
 
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [totalUniqueProducts, setTotalUniqueProducts] = useState(0);
   const [topProducts, setTopProducts] = useState([]);
   const [chartData, setChartData] = useState([]);
 
   // 🔥 Fetch ALL sales on first load
   useEffect(() => {
     fetchSales();
+    fetchTotalUniqueProducts();
   }, []);
+
+  // 🔥 Fetch total unique products
+  const fetchTotalUniqueProducts = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "products"));
+      setTotalUniqueProducts(snapshot.size);
+    } catch (error) {
+      console.error("Error fetching total products:", error);
+    }
+  };
 
   const fetchSales = async () => {
     let q;
@@ -95,66 +107,103 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>📊 Dashboard (All Time)</h1>
+    <div>
+      <h1 className="pos-page-title">Analytics</h1>
 
       {/* 🔥 Date Picker */}
-      <div style={{ marginBottom: "20px" }}>
-        <label>From: </label>
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-        />
-
-        <label style={{ marginLeft: "10px" }}>To: </label>
-        <input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-        />
-
-        <button onClick={fetchSales} style={{ marginLeft: "10px" }}>
-          Apply
-        </button>
-
-        <button
-          onClick={() => {
-            setFromDate("");
-            setToDate("");
-            fetchSales();
-          }}
-          style={{ marginLeft: "10px" }}
-        >
-          Reset (All Time)
-        </button>
+      <div className="pos-card">
+        <div className="pos-card-header">
+          <span>Sales window</span>
+        </div>
+        <div className="pos-layout-row">
+          <div style={{ minWidth: 160 }}>
+            <div className="pos-label">From</div>
+            <input
+              className="pos-input"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+          </div>
+          <div style={{ minWidth: 160 }}>
+            <div className="pos-label">To</div>
+            <input
+              className="pos-input"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <button className="pos-button" onClick={fetchSales}>
+              Apply
+            </button>
+            <button
+              className="pos-button-secondary"
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+                fetchSales();
+              }}
+            >
+              Reset (All Time)
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* 💰 Stats */}
-      <h2>💰 Earnings: ₱{totalEarnings}</h2>
-      <h2>📦 Products Sold: {totalProducts}</h2>
+      <div className="pos-layout-row pos-mt-lg">
+        {/* 💰 Stats */}
+        <div style={{ flex: "1 1 260px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>Overview</span>
+            </div>
+            <p>💰 Earnings: ₱{totalEarnings}</p>
+            <p>📦 Products Sold: {totalProducts}</p>
+            <p>🏪 Products in Inventory: {totalUniqueProducts}</p>
+          </div>
+        </div>
 
-      {/* 📈 Chart */}
-      <h2>📈 Sales Chart</h2>
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={chartData}>
-          <CartesianGrid stroke="#ccc" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Line type="monotone" dataKey="total" stroke="#8884d8" />
-        </LineChart>
-      </ResponsiveContainer>
+        {/* 📈 Chart */}
+        <div style={{ flex: "2 1 420px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>Sales chart</span>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData}>
+                <CartesianGrid stroke="#333b52" />
+                <XAxis dataKey="date" stroke="#a4b0d5" />
+                <YAxis stroke="#a4b0d5" />
+                <Tooltip />
+                <Line type="monotone" dataKey="total" stroke="#36c2ff" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
 
       {/* 🔥 Top Products */}
-      <h2>🔥 Top Products</h2>
-      <ul>
-        {topProducts.map(([name, qty]) => (
-          <li key={name}>
-            {name} — {qty} sold
-          </li>
-        ))}
-      </ul>
+      <div className="pos-card pos-mt-lg">
+        <div className="pos-card-header">
+          <span>Top products</span>
+        </div>
+        <ul>
+          {topProducts.map(([name, qty]) => (
+            <li key={name}>
+              {name} — {qty} sold
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

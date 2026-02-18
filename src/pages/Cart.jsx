@@ -215,91 +215,134 @@ export default function Cart() {
 
   return (
     <div>
-      <h1>All Shopping Carts</h1>
+      <h1 className="pos-page-title">Checkout</h1>
 
       {loading ? (
-        <p>Loading carts...</p>
+        <p className="pos-muted">Loading carts...</p>
       ) : (
-        <>
-          {allCarts.map((cartData) =>
-            cartData.items && cartData.items.length > 0
-              ? cartData.items.map((item, index) => (
-                  <div
-                    key={`${cartData.id}-${index}`}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "10px",
-                      borderBottom: "1px solid #ddd",
-                      alignItems: "center",
-                    }}
-                  >
-                    {/* 🧾 PRODUCT INFO */}
-                    <div>
-                      <strong>{item.name}</strong> — ₱{item.price}
-                    </div>
+        <div className="pos-layout-row">
+          {/* Items list */}
+          <div style={{ flex: "1 1 420px" }}>
+            <div className="pos-card">
+              <div className="pos-card-header">
+                <span>Cart items</span>
+              </div>
 
-                    {/* 💰 PRICE */}
-                    <div style={{ fontWeight: "bold", color: "#007bff" }}>
-                      ₱{item.price * item.quantity}
-                    </div>
+              {allCarts.every((c) => !c.items || c.items.length === 0) ? (
+                <p className="pos-muted">No items in any cart.</p>
+              ) : (
+                allCarts.map((cartData) =>
+                  cartData.items && cartData.items.length > 0
+                    ? cartData.items.map((item, index) => (
+                        <div
+                          key={`${cartData.id}-${index}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "8px 0",
+                            borderBottom:
+                              "1px solid rgba(56, 64, 90, 0.7)",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 600 }}>
+                              {item.name}
+                            </div>
+                            <div className="pos-muted">
+                              ₱{item.price} each
+                            </div>
+                          </div>
 
-                    {/* 🎛️ ACTION BUTTONS */}
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      <button onClick={() => decreaseQuantity(cartData.id, item.id)}>
-                        −
-                      </button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => increaseQuantity(cartData.id, item.id)}>
-                        +
-                      </button>
-                      <button
-                        onClick={() => removeProduct(cartData.id, item.id)}
-                        style={{ backgroundColor: "red", color: "white" }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))
-              : null
-          )}
-
-          {/* GRAND TOTAL */}
-          <h2 style={{ textAlign: "right" }}>Grand Total: ₱{grandTotal}</h2>
-
-          {/* 💵 CASH INPUT */}
-          <div style={{ marginTop: "20px", textAlign: "right" }}>
-            <label>
-              Cash: ₱
-              <input
-                type="number"
-                value={cash}
-                onChange={(e) => setCash(e.target.value)}
-                style={{ width: "120px", marginLeft: "10px" }}
-              />
-            </label>
-            <p>Change: ₱{change < 0 ? 0 : change.toFixed(2)}</p>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <div className="pos-chip">
+                              ₱{item.price * item.quantity}
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <button
+                                className="pos-button-secondary"
+                                onClick={() =>
+                                  decreaseQuantity(cartData.id, item.id)
+                                }
+                              >
+                                −
+                              </button>
+                              <span>{item.quantity}</span>
+                              <button
+                                className="pos-button-secondary"
+                                onClick={() =>
+                                  increaseQuantity(cartData.id, item.id)
+                                }
+                              >
+                                +
+                              </button>
+                              <button
+                                className="pos-button-danger"
+                                onClick={() =>
+                                  removeProduct(cartData.id, item.id)
+                                }
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    : null
+                )
+              )}
+            </div>
           </div>
 
-          {/* SELL BUTTON */}
-          <div style={{ textAlign: "center", marginTop: "20px" }}>
-            <button
-              onClick={handleSellCart}
-              style={{
-                padding: "15px 30px",
-                fontSize: "18px",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              Sold All Items
-            </button>
+          {/* Totals + payment */}
+          <div style={{ flex: "0 0 280px" }}>
+            <div className="pos-card">
+              <div className="pos-card-header">
+                <span>Payment</span>
+              </div>
+
+              <div className="pos-total-row">
+                Grand Total: ₱{grandTotal.toFixed(2)}
+              </div>
+
+              <div className="pos-mt-md">
+                <div className="pos-label">Cash received</div>
+                <input
+                  type="number"
+                  value={cash}
+                  onChange={(e) => setCash(e.target.value)}
+                  className="pos-input"
+                />
+                <div className="pos-mt-md pos-text-right">
+                  <span className="pos-muted">
+                    Change: ₱{change < 0 ? 0 : change.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pos-mt-lg pos-text-right">
+                <button
+                  className="pos-button-danger"
+                  onClick={handleSellCart}
+                >
+                  Complete Sale
+                </button>
+              </div>
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

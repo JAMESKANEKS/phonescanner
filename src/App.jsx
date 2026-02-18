@@ -13,17 +13,20 @@ export default function App() {
   return (
     <CartProvider>
       <BrowserRouter>
-        <Navbar />
-
-        <Routes>
-          <Route path="/" element={<AddProduct />} />
-          <Route path="/pos" element={<POS />} />
-          <Route path="/products" element={<ProductList />} />
-          <Route path="/receipts" element={<ReceiptList />} />
-          <Route path="/receipt/:id" element={<Receipt />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/cart" element={<Cart />} />
-        </Routes>
+        <div className="pos-app-shell">
+          <Navbar />
+          <main className="pos-main">
+            <Routes>
+              <Route path="/" element={<AddProduct />} />
+              <Route path="/pos" element={<POS />} />
+              <Route path="/products" element={<ProductList />} />
+              <Route path="/receipts" element={<ReceiptList />} />
+              <Route path="/receipt/:id" element={<Receipt />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/cart" element={<Cart />} />
+            </Routes>
+          </main>
+        </div>
       </BrowserRouter>
     </CartProvider>
   );

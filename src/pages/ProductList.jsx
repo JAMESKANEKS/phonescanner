@@ -176,40 +176,64 @@ export default function ProductList() {
 
   return (
     <div>
-      <h1>Product List</h1>
+      <h1 className="pos-page-title">Product Catalog</h1>
 
-      {/* 🔍 SEARCH BARCODE */}
-      <div style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          placeholder="Enter or scan barcode to search"
-          value={searchBarcode}
-          onChange={(e) => setSearchBarcode(e.target.value)}
-          style={{ padding: "8px", marginRight: "10px", width: "200px" }}
-        />
-        <button onClick={() => setIsScanning(!isScanning)}>
-          {isScanning ? "Stop Scanning" : "Scan Barcode"}
-        </button>
+      <div className="pos-layout-row">
+        {/* Search + scanner */}
+        <div style={{ flex: "1 1 320px" }}>
+          <div className="pos-card">
+            <div className="pos-card-header">
+              <span>Search by barcode</span>
+            </div>
+
+            <div className="pos-label">Barcode</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="text"
+                placeholder="Enter or scan barcode"
+                value={searchBarcode}
+                onChange={(e) => setSearchBarcode(e.target.value)}
+                className="pos-input"
+              />
+              <button
+                className={isScanning ? "pos-button-secondary" : "pos-button"}
+                onClick={() => setIsScanning(!isScanning)}
+              >
+                {isScanning ? "Stop" : "Scan"}
+              </button>
+            </div>
+
+            {isScanning && (
+              <div className="pos-mt-md">
+                <div className="pos-label">Camera scanner</div>
+                <div className="pos-scanner-frame">
+                  <div
+                    id="product-list-scanner"
+                    ref={scannerContainerRef}
+                    className="pos-scanner-target"
+                  ></div>
+                </div>
+                <div className="pos-mt-md pos-text-right">
+                  <button
+                    className="pos-button-secondary"
+                    onClick={stopScanner}
+                  >
+                    Stop Scanner
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 📷 BARCODE SCANNER */}
-      {isScanning && (
-        <div style={{ marginBottom: "20px", border: "1px solid #ccc", padding: "10px", width: "320px" }}>
-          <h3>Scan Barcode</h3>
-          <div
-            id="product-list-scanner"
-            ref={scannerContainerRef}
-            style={{ width: "300px", height: "250px" }}
-          ></div>
-          <button onClick={stopScanner} style={{ marginTop: "10px", padding: "5px 10px" }}>
-            Stop Scanning
-          </button>
-        </div>
-      )}
-
       {/* 🔹 PRODUCT TABLE */}
-      <div style={{ overflowX: "auto" }}>
-        <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%" }}>
+      <div className="pos-card pos-mt-lg" style={{ overflowX: "auto" }}>
+        <div className="pos-card-header">
+          <span>Products</span>
+          <span className="pos-chip">{filteredProducts.length} items</span>
+        </div>
+        <table className="pos-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -222,36 +246,106 @@ export default function ProductList() {
           <tbody>
             {filteredProducts.map((product) => (
               <tr key={product.id}>
-                <td>{editingId === product.id ? <input value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} /> : product.name}</td>
-                <td>{editingId === product.id ? <input type="number" value={editData.price} onChange={(e) => setEditData({ ...editData, price: e.target.value })} /> : `₱${product.price}`}</td>
-                <td>{editingId === product.id ? <input type="number" value={editData.stock} onChange={(e) => setEditData({ ...editData, stock: e.target.value })} /> : product.stock}</td>
-                <td>{!hiddenBarcodes[product.id] ? <svg ref={(el) => (barcodeRefs.current[product.id] = el)}></svg> : <span>Hidden</span>}</td>
                 <td>
-                  <button onClick={() => toggleBarcode(product.id)}>
-                    {hiddenBarcodes[product.id] ? "Show Barcode" : "Hide Barcode"}
-                  </button>
                   {editingId === product.id ? (
-                    <>
-                      <button onClick={saveEdit}>Save</button>
-                      <button onClick={cancelEdit}>Cancel</button>
-                    </>
+                    <input
+                      className="pos-input-sm"
+                      value={editData.name}
+                      onChange={(e) =>
+                        setEditData({ ...editData, name: e.target.value })
+                      }
+                    />
                   ) : (
-                    <button onClick={() => startEdit(product)}>Edit</button>
+                    product.name
                   )}
-                  <button
-                    onClick={() => deleteProduct(product.id)}
-                    style={{ marginLeft: "5px", backgroundColor: "red", color: "white", border: "none", padding: "5px 10px", cursor: "pointer" }}
-                  >
-                    Delete
-                  </button>
+                </td>
+                <td>
+                  {editingId === product.id ? (
+                    <input
+                      className="pos-input-sm"
+                      type="number"
+                      value={editData.price}
+                      onChange={(e) =>
+                        setEditData({ ...editData, price: e.target.value })
+                      }
+                    />
+                  ) : (
+                    `₱${product.price}`
+                  )}
+                </td>
+                <td>
+                  {editingId === product.id ? (
+                    <input
+                      className="pos-input-sm"
+                      type="number"
+                      value={editData.stock}
+                      onChange={(e) =>
+                        setEditData({ ...editData, stock: e.target.value })
+                      }
+                    />
+                  ) : (
+                    product.stock
+                  )}
+                </td>
+                <td>
+                  {!hiddenBarcodes[product.id] ? (
+                    <svg
+                      ref={(el) => (barcodeRefs.current[product.id] = el)}
+                    ></svg>
+                  ) : (
+                    <span>Hidden</span>
+                  )}
+                </td>
+                <td>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button
+                      className="pos-button-secondary"
+                      onClick={() => toggleBarcode(product.id)}
+                    >
+                      {hiddenBarcodes[product.id]
+                        ? "Show Code"
+                        : "Hide Code"}
+                    </button>
+                    {editingId === product.id ? (
+                      <>
+                        <button
+                          className="pos-button"
+                          onClick={saveEdit}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="pos-button-secondary"
+                          onClick={cancelEdit}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="pos-button-secondary"
+                        onClick={() => startEdit(product)}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      className="pos-button-danger"
+                      onClick={() => deleteProduct(product.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
 
-      {filteredProducts.length === 0 && <p>No products found.</p>}
+        {filteredProducts.length === 0 && (
+          <p className="pos-muted pos-mt-md">No products found.</p>
+        )}
+      </div>
     </div>
   );
 }
