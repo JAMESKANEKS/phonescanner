@@ -168,6 +168,31 @@ export default function ProductList() {
     };
   }, [scanning]);
 
+  // 🔹 CLEANUP ON COMPONENT UNMOUNT AND WINDOW UNLOAD
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Force cleanup when navigating away
+      setScanning(false);
+      if (html5QrCodeRef.current) {
+        try {
+          html5QrCodeRef.current.stop();
+          html5QrCodeRef.current.clear();
+        } catch (err) {
+          console.log("Camera cleanup error:", err);
+        }
+        html5QrCodeRef.current = null;
+      }
+    };
+
+    // Add beforeunload listener for navigation
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload(); // Also cleanup on unmount
+    };
+  }, []);
+
   return (
     <div>
       <h1>Product List</h1>
