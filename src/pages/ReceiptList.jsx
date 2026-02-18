@@ -202,7 +202,7 @@ export default function ReceiptList() {
                   <td>₱{sale.change ? sale.change.toFixed(2) : 0}</td>
                   <td>{sale.items ? sale.items.length : 0}</td>
                   <td>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div className="pos-action-buttons">
                       <Link to={`/receipt/${sale.id}`}>
                         <button className="pos-button-secondary">View</button>
                       </Link>

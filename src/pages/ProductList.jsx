@@ -196,14 +196,14 @@ export default function ProductList() {
 
       <div className="pos-layout-row">
         {/* Search + scanner */}
-        <div style={{ flex: "1 1 320px" }}>
+        <div className="pos-search-column">
           <div className="pos-card">
             <div className="pos-card-header">
               <span>Search by barcode</span>
             </div>
 
             <div className="pos-label">Barcode</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="pos-input-group">
               <input
                 type="text"
                 placeholder="Enter or scan barcode"
@@ -313,7 +313,7 @@ export default function ProductList() {
                   )}
                 </td>
                 <td>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <div className="pos-action-buttons">
                     <button
                       className="pos-button-secondary"
                       onClick={() => toggleBarcode(product.id)}

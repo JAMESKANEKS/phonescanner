@@ -63,9 +63,9 @@ export default function POS() {
       {/* Headless scanner logic – renders into #reader inside the frame */}
       <Scanner active={scannerActive} />
 
-      <div className="pos-layout-row">
+      <div className="pos-layout-row pos-responsive-layout">
         {/* Left column: scanner + manual barcode */}
-        <div style={{ flex: "1 1 340px" }}>
+        <div className="pos-scanner-column">
           <div className="pos-card">
             <div className="pos-card-header">
               <span>Scanner</span>
@@ -89,7 +89,7 @@ export default function POS() {
 
             <div className="pos-mt-md">
               <div className="pos-label">Manual barcode</div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div className="pos-input-group">
                 <input
                   type="text"
                   placeholder="Type barcode here"
@@ -97,7 +97,7 @@ export default function POS() {
                   onChange={(e) => setManualBarcode(e.target.value)}
                   className="pos-input"
                 />
-                <button className="pos-button" onClick={handleAddManualBarcode}>
+                <button className="pos-button pos-input-button" onClick={handleAddManualBarcode}>
                   Add
                 </button>
               </div>
@@ -109,7 +109,7 @@ export default function POS() {
         </div>
 
         {/* Right column: cart summary */}
-        <div style={{ flex: "1 1 260px" }}>
+        <div className="pos-cart-column">
           <div className="pos-card">
             <div className="pos-card-header">
               <span>Cart Overview</span>
@@ -122,7 +122,7 @@ export default function POS() {
 
             <div className="pos-mt-lg pos-text-right">
               <button
-                className="pos-button-secondary"
+                className="pos-button-secondary pos-full-width-mobile"
                 onClick={() => navigate("/cart")}
               >
                 Open Cart
