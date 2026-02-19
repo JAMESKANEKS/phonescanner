@@ -4,6 +4,42 @@ import { db } from "../firebase/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
+// Global state to track if any scanner is stopping/stopped (shared across all Scanner instances)
+let globalScannerStopping = false;
+let globalScannerStopTime = 0;
+
+// Helper function to stop all video tracks globally
+const stopAllVideoTracks = () => {
+  try {
+    // Stop all video tracks from all video elements
+    if (typeof document !== 'undefined') {
+      const videoElements = document.querySelectorAll('video');
+      videoElements.forEach(video => {
+        try {
+          if (video && video.srcObject) {
+            const stream = video.srcObject;
+            if (stream instanceof MediaStream) {
+              stream.getTracks().forEach(track => {
+                try {
+                  track.stop();
+                } catch (trackErr) {
+                  console.debug("Error stopping track:", trackErr);
+                }
+              });
+            }
+            video.srcObject = null;
+          }
+        } catch (videoErr) {
+          console.debug("Error cleaning video element:", videoErr);
+        }
+      });
+    }
+  } catch (err) {
+    const errMessage = err?.message || "Unknown error";
+    console.debug("Error stopping all video tracks:", errMessage);
+  }
+};
+
 export default function Scanner({ active, scannerId = "reader", onScan, onScanSuccess }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
@@ -24,15 +60,35 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
   }, [onScan, onScanSuccess, addToCart]);
 
   // Beep sound for every added product
-  const beep = useRef(
-    new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
-  );
+  const beep = useRef(null);
+  
+  // Initialize beep audio
+  useEffect(() => {
+    try {
+      beep.current = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+      beep.current.preload = "auto";
+    } catch (err) {
+      console.debug("Failed to initialize beep audio:", err);
+    }
+  }, []);
 
   const startScanner = useCallback(async () => {
     // Prevent multiple scanners or if already starting/stopping
     if (scannerRef.current || isStartingRef.current || isStoppingRef.current) return;
     
+    // Wait if another scanner instance is stopping globally
+    if (globalScannerStopping) {
+      const timeSinceStop = Date.now() - globalScannerStopTime;
+      if (timeSinceStop < 800) {
+        // Wait until enough time has passed since last stop
+        await new Promise(resolve => setTimeout(resolve, 800 - timeSinceStop));
+      }
+    }
+    
     isStartingRef.current = true;
+
+    // Wait a bit before starting to ensure previous scanner is fully stopped
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
       const cameras = await Html5Qrcode.getCameras();
@@ -43,9 +99,12 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      // If camera is in use or permission error, wait a bit and retry once
-      if (err.message?.includes("in use") || err.message?.includes("Permission") || err.message?.includes("NotAllowedError")) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      const errMessage = err?.message || "";
+      const errName = err?.name || "";
+      // If camera is in use or permission error, wait longer and retry
+      if (errMessage.includes("in use") || errMessage.includes("Permission") || errMessage.includes("NotAllowedError") || errName === "NotAllowedError") {
+        // Wait longer and retry
+        await new Promise(resolve => setTimeout(resolve, 800));
         try {
           const cameras = await Html5Qrcode.getCameras();
           if (!cameras || cameras.length === 0) {
@@ -55,9 +114,22 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
           }
         } catch (retryErr) {
           console.error("Camera retry failed:", retryErr);
-          alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
-          isStartingRef.current = false;
-          return;
+          // One more retry after stopping all tracks
+          stopAllVideoTracks();
+          await new Promise(resolve => setTimeout(resolve, 500));
+          try {
+            const cameras = await Html5Qrcode.getCameras();
+            if (!cameras || cameras.length === 0) {
+              alert("No camera detected. Please connect a camera and try again.");
+              isStartingRef.current = false;
+              return;
+            }
+          } catch (finalErr) {
+            console.error("Final camera access attempt failed:", finalErr);
+            alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
+            isStartingRef.current = false;
+            return;
+          }
         }
       } else {
         alert("Unable to access cameras. Please check browser permissions.");
@@ -90,8 +162,15 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
             try {
               await scanHandler(barcode);
               // Play beep on successful scan
-              beep.current.currentTime = 0;
-              beep.current.play().catch(() => {});
+              if (beep.current) {
+                try {
+                  beep.current.currentTime = 0;
+                  await beep.current.play();
+                } catch (audioErr) {
+                  // Ignore audio play errors
+                  console.debug("Beep play error:", audioErr);
+                }
+              }
             } catch (err) {
               console.error("Scan handler error:", err);
             }
@@ -106,33 +185,41 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
               const snapshot = await getDocs(q);
 
               if (!snapshot.empty) {
-                snapshot.forEach(async (docSnapshot) => {
+                // Use for...of instead of forEach to properly handle async operations
+                for (const docSnapshot of snapshot.docs) {
                   const productData = docSnapshot.data();
                   const currentStock = productData.stock || 0;
 
                   // 🔍 CHECK STOCK AVAILABILITY
                   if (currentStock <= 0) {
                     alert(`⚠️ Product "${productData.name}" is out of stock!`);
-                    return;
+                    continue;
                   }
 
                   addToCartRef.current({ id: docSnapshot.id, ...productData });
 
                   // ✅ Play beep every time a product is added
-                  beep.current.currentTime = 0; // reset for overlapping
-                  beep.current.play();
-                });
+                  try {
+                    beep.current.currentTime = 0; // reset for overlapping
+                    await beep.current.play();
+                  } catch (audioErr) {
+                    // Ignore audio play errors (may fail in some browsers)
+                    console.debug("Beep play error:", audioErr);
+                  }
+                }
               }
             } catch (err) {
               console.error("Scan error:", err);
-              if (err.code === "permission-denied") {
+              const errCode = err?.code || "";
+              const errMessage = err?.message || "Unknown error";
+              if (errCode === "permission-denied") {
                 alert("Permission denied: You don't have access to camera or products.");
-              } else if (err.code === "unavailable") {
+              } else if (errCode === "unavailable") {
                 alert("Service unavailable: Please check your internet connection.");
-              } else if (err.code === "not-found") {
+              } else if (errCode === "not-found") {
                 alert("Product not found. It may have been deleted.");
               } else {
-                alert("Error scanning product: " + err.message);
+                alert("Error scanning product: " + errMessage);
               }
             }
           }
@@ -145,8 +232,9 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         (errorMessage) => {
           // Ignore scanning errors - scanner continues running
           // Only log if it's not a common "not found" error
-          if (!errorMessage.includes("NotFoundException")) {
-            console.debug("Scanning...", errorMessage);
+          const msg = errorMessage || "";
+          if (msg && !msg.includes("NotFoundException")) {
+            console.debug("Scanning...", msg);
           }
         }
       );
@@ -159,7 +247,8 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       
       // Don't show alert if scanner is being stopped intentionally
       if (active) {
-        alert("Failed to start scanner: " + err.message);
+        const errMessage = err?.message || "Unknown error";
+        alert("Failed to start scanner: " + errMessage);
       }
     }
   }, [scannerId, active]);
@@ -167,6 +256,10 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
   const stopScanner = useCallback(async () => {
     // Prevent multiple stop calls
     if (isStoppingRef.current && !scannerRef.current) return;
+    
+    // Set global stopping state
+    globalScannerStopping = true;
+    globalScannerStopTime = Date.now();
     
     if (scannerRef.current) {
       isStoppingRef.current = true;
@@ -178,8 +271,9 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         await scanner.stop();
       } catch (err) {
         // Ignore errors if scanner is already stopped
-        if (!err.message?.includes("already") && !err.message?.includes("NotStartedError") && !err.message?.includes("NotFoundException")) {
-          console.debug("Scanner stop error (may already be stopped):", err.message);
+        const errMessage = err?.message || "";
+        if (!errMessage.includes("already") && !errMessage.includes("NotStartedError") && !errMessage.includes("NotFoundException")) {
+          console.debug("Scanner stop error (may already be stopped):", errMessage);
         }
       }
       
@@ -188,10 +282,14 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         await scanner.clear();
       } catch (err) {
         // Ignore clear errors - scanner may already be cleared
-        console.debug("Scanner clear error (may already be cleared):", err.message);
+        const errMessage = err?.message || "";
+        console.debug("Scanner clear error (may already be cleared):", errMessage);
       }
       
-      // Also try to stop any active media tracks directly (fallback)
+      // Stop all video tracks globally (more thorough cleanup)
+      stopAllVideoTracks();
+      
+      // Also try to stop tracks from this specific scanner element
       try {
         const videoElement = document.querySelector(`#${scannerId} video`);
         if (videoElement && videoElement.srcObject) {
@@ -204,11 +302,12 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         }
       } catch (err) {
         // Ignore errors - this is a fallback cleanup
-        console.debug("Direct track cleanup error:", err.message);
+        const errMessage = err?.message || "";
+        console.debug("Direct track cleanup error:", errMessage);
       }
       
-      // Small delay to ensure camera is fully released before allowing new scanner
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Longer delay to ensure camera is fully released before allowing new scanner
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Reset flags
       isStartingRef.current = false;
@@ -218,6 +317,11 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       isStartingRef.current = false;
       isStoppingRef.current = false;
     }
+    
+    // Clear global stopping state after delay
+    setTimeout(() => {
+      globalScannerStopping = false;
+    }, 600);
   }, [scannerId]);
 
 
@@ -255,9 +359,17 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       if (scannerRef.current) {
         const scanner = scannerRef.current;
         scannerRef.current = null;
+        // Use non-blocking cleanup for beforeunload
         scanner.stop().catch(() => {}).finally(() => {
-          scanner.clear().catch(() => {});
+          try {
+            scanner.clear().catch(() => {});
+          } catch (clearErr) {
+            // Ignore clear errors during unload
+            console.debug("Clear error during unload:", clearErr);
+          }
         });
+        // Also stop all tracks immediately
+        stopAllVideoTracks();
       }
     };
 
@@ -269,15 +381,19 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
     };
 
     // Listen for page unload events
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('pagehide', handleBeforeUnload);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     // Cleanup listeners
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('pagehide', handleBeforeUnload);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
       // Ensure camera is stopped on unmount
       stopScanner();
     };
