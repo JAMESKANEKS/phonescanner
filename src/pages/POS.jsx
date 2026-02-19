@@ -48,8 +48,6 @@ export default function POS() {
       };
 
       addToCart(product);
-
-      alert(`✅ Added: ${data.name}`);
     } catch (err) {
       console.error(err);
       alert("Error fetching product");

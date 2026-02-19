@@ -9,6 +9,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
   const isStartingRef = useRef(false);
+  const isStoppingRef = useRef(false);
 
   // Beep sound for every added product
   const beep = useRef(
@@ -16,8 +17,8 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
   );
 
   const startScanner = useCallback(async () => {
-    // Prevent multiple scanners or if already starting
-    if (scannerRef.current || isStartingRef.current) return;
+    // Prevent multiple scanners or if already starting/stopping
+    if (scannerRef.current || isStartingRef.current || isStoppingRef.current) return;
     
     isStartingRef.current = true;
 
@@ -30,9 +31,26 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      alert("Unable to access cameras. Please check browser permissions.");
-      isStartingRef.current = false;
-      return;
+      // If camera is in use or permission error, wait a bit and retry once
+      if (err.message?.includes("in use") || err.message?.includes("Permission") || err.message?.includes("NotAllowedError")) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (!cameras || cameras.length === 0) {
+            alert("No camera detected. Please connect a camera and try again.");
+            isStartingRef.current = false;
+            return;
+          }
+        } catch (retryErr) {
+          alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
+          isStartingRef.current = false;
+          return;
+        }
+      } else {
+        alert("Unable to access cameras. Please check browser permissions.");
+        isStartingRef.current = false;
+        return;
+      }
     }
 
     try {
@@ -58,6 +76,9 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
           if (scanHandler) {
             try {
               await scanHandler(barcode);
+              // Play beep on successful scan
+              beep.current.currentTime = 0;
+              beep.current.play().catch(() => {});
             } catch (err) {
               console.error("Scan handler error:", err);
             }
@@ -131,38 +152,71 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
   }, [addToCart, onScan, onScanSuccess, scannerId, active]);
 
   const stopScanner = useCallback(async () => {
+    // Prevent multiple stop calls
+    if (isStoppingRef.current) return;
+    
     if (scannerRef.current) {
+      isStoppingRef.current = true;
+      const scanner = scannerRef.current;
+      scannerRef.current = null; // Clear ref immediately to prevent race conditions
+      
       try {
         // Stop the scanner and clear the camera stream
-        await scannerRef.current.stop();
-        await scannerRef.current.clear();
+        await scanner.stop();
       } catch (err) {
-        console.error("Scanner stop error:", err);
-      } finally {
-        // Always cleanup the reference
-        scannerRef.current = null;
-        isStartingRef.current = false;
+        // Ignore errors if scanner is already stopped
+        if (!err.message?.includes("already") && !err.message?.includes("NotStartedError")) {
+          console.debug("Scanner stop error (may already be stopped):", err.message);
+        }
       }
+      
+      try {
+        // Always clear to release camera resources
+        await scanner.clear();
+      } catch (err) {
+        // Ignore clear errors
+        console.debug("Scanner clear error (may already be cleared):", err.message);
+      }
+      
+      // Small delay to ensure camera is fully released before allowing new scanner
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Reset flags
+      isStartingRef.current = false;
+      isStoppingRef.current = false;
+    } else {
+      // Ensure flags are reset even if no scanner instance
+      isStartingRef.current = false;
+      isStoppingRef.current = false;
     }
   }, []);
 
 
   // React to `active` prop to start/stop
   useEffect(() => {
+    let timer = null;
+    let isMounted = true;
+    
     if (active) {
       // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        startScanner();
+      timer = setTimeout(() => {
+        if (isMounted) {
+          startScanner();
+        }
       }, 100);
-      
-      return () => {
-        clearTimeout(timer);
-        // Only stop if component is unmounting or active becomes false
-        // Don't stop here if active is still true (let the effect handle it)
-      };
     } else {
       stopScanner();
     }
+    
+    // Cleanup function - runs when component unmounts or dependencies change
+    return () => {
+      isMounted = false;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      // Always stop scanner on unmount to release camera
+      stopScanner();
+    };
   }, [active, startScanner, stopScanner]);
 
   return null;
