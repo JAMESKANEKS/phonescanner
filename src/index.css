@@ -229,29 +229,11 @@ body {
 }
 
 .pos-scanner-frame {
-  width: 320px;
-  max-width: 100%;
-  height: 260px;
-  border-radius: 18px;
-  background: radial-gradient(circle at center, #0b2438 0, #02060b 55%, #000 100%);
-  box-shadow:
-    0 0 0 1px rgba(0, 255, 255, 0.06),
-    0 24px 45px rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
+  height: 350px;
+  background: black;
+  border-radius: 10px;
   overflow: hidden;
-  position: relative;
-}
-
-.pos-scanner-frame::before {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  border-radius: 12px;
-  border: 1px dashed rgba(120, 233, 255, 0.6);
-  box-shadow: 0 0 16px rgba(0, 255, 255, 0.4);
-  pointer-events: none;
 }
 
 .pos-scanner-target {
@@ -424,14 +406,6 @@ body {
     padding: 6px 8px;
   }
 
-  /* Scanner responsive */
-  .pos-scanner-frame {
-    width: 100%;
-    max-width: 320px;
-    height: 200px;
-    margin: 0 auto;
-  }
-
   /* App shell responsive */
   .pos-app-shell {
     margin: 8px;
@@ -494,10 +468,6 @@ body {
   .pos-table th,
   .pos-table td {
     padding: 4px 6px;
-  }
-
-  .pos-scanner-frame {
-    height: 180px;
   }
 
   .pos-app-shell {
