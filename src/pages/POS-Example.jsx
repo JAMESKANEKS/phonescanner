@@ -73,7 +73,7 @@ export default function POS() {
       };
 
       addToCart(product);
-      // Keep scanner active for continuous scanning
+      setScannerActive(false);
     } catch (err) {
       console.error("Error processing scanned product:", err);
       alert("Error processing scanned product. Please try again.");

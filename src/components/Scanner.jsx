@@ -20,12 +20,12 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
     try {
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
-        console.warn("No camera detected");
+        alert("No camera detected. Please connect a camera and try again.");
         return;
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      // Don't show alert immediately - let the scanner handle it gracefully
+      alert("Unable to access cameras. Please check browser permissions.");
       return;
     }
 
@@ -35,11 +35,7 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
     scanner
       .start(
         { facingMode: "environment" },
-        { 
-          fps: 15, // Increased FPS for better responsiveness
-          qrbox: 250,
-          aspectRatio: 1.0
-        },
+        { fps: 10, qrbox: 250 },
         async (barcode) => {
           if (scanCooldownRef.current) return; // Prevent overlapping scans
 
@@ -93,17 +89,11 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
           // ⏱ Small delay to prevent ultra-rapid duplicates
           setTimeout(() => {
             scanCooldownRef.current = false;
-          }, 300); // Reduced to 300ms for faster scanning
+          }, 800); // 800ms between scans
         }
       )
       .catch((err) => {
         console.error("Scanner start error:", err);
-        // Only show user-friendly error for permission issues
-        if (err.name === 'NotAllowedError') {
-          alert("Camera access denied. Please allow camera permissions in your browser.");
-        } else if (err.name === 'NotFoundError') {
-          alert("No camera found. Please connect a camera and try again.");
-        }
         scannerRef.current = null;
       });
   }, [addToCart, onScan, scannerId]);
@@ -127,18 +117,15 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        startScanner();
-      }, 100);
-      return () => clearTimeout(timer);
+      setTimeout(() => startScanner(), 0);
     } else {
-      // Small delay to prevent flicker
-      const timer = setTimeout(() => {
-        stopScanner();
-      }, 100);
-      return () => clearTimeout(timer);
+      setTimeout(() => stopScanner(), 0);
     }
+
+    return () => {
+      // Cleanup on unmount
+      setTimeout(() => stopScanner(), 0);
+    };
   }, [active, startScanner, stopScanner]);
 
   return null;
