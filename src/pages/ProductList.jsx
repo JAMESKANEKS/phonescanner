@@ -1,8 +1,7 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import JsBarcode from "jsbarcode";
-import { Html5Qrcode } from "html5-qrcode";
 import Scanner from "../components/Scanner";
 
 export default function ProductList() {
@@ -17,61 +16,7 @@ export default function ProductList() {
   const [scannerReady, setScannerReady] = useState(false);
 
   const barcodeRefs = useRef({});
-  const scannerRef = useRef(null);
   const scannerContainerRef = useRef(null);
-
-  // 🛑 STOP BARCODE SCANNER
-  const stopScanner = useCallback(() => {
-    if (scannerRef.current) {
-      scannerRef.current.stop().then(() => {
-        scannerRef.current = null;
-        setIsScanning(false);
-      }).catch((err) => {
-        console.error("Error stopping scanner:", err);
-      });
-    }
-  }, []);
-
-  // 📷 START BARCODE SCANNER
-  const startScanner = useCallback(async () => {
-    if (scannerRef.current) return; // Prevent multiple scanners
-
-    try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        alert("No camera detected. Please connect a camera and try again.");
-        setIsScanning(false);
-        return;
-      }
-    } catch (err) {
-      console.error("Error checking cameras:", err);
-      alert("Unable to access cameras. Please check browser permissions.");
-      setIsScanning(false);
-      return;
-    }
-
-    // Html5Qrcode expects a DOM element ID (string), not than element itself
-    const scanner = new Html5Qrcode("product-list-scanner");
-    scannerRef.current = scanner;
-
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (barcode) => {
-          setSearchBarcode(barcode);
-          stopScanner();
-        },
-        (error) => {
-          console.log("Scan error:", error);
-        }
-      )
-      .catch((err) => {
-        console.error("Error starting scanner:", err);
-        alert("Error starting camera scanner. Please check camera permissions.");
-        setIsScanning(false);
-      });
-  }, [setSearchBarcode, stopScanner]);
 
   // �� FETCH PRODUCTS
   const fetchProducts = async () => {
@@ -111,25 +56,6 @@ export default function ProductList() {
     }
   }, [products, searchBarcode]);
 
-  // 🧹 CLEANUP SCANNER ON UNMOUNT
-  useEffect(() => {
-  return () => {
-    if (scannerRef.current) {
-      scannerRef.current.stop().then(() => {
-        scannerRef.current = null;
-      }).catch((err) => console.error("Error cleaning up scanner:", err));
-    }
-  };
-}, []);
-
-  // 📷 START SCANNER WHEN isScanning CHANGES TO TRUE
-  useEffect(() => {
-    if (isScanning && scannerContainerRef.current) {
-      setTimeout(() => startScanner(), 0);
-    } else if (!isScanning) {
-      setTimeout(() => stopScanner(), 0);
-    }
-  }, [isScanning, startScanner, stopScanner]);
 
 
   // 🔥 GENERATE BARCODE WHEN SHOWN
@@ -259,7 +185,10 @@ export default function ProductList() {
                 <div className="pos-mt-md pos-text-right">
                   <button
                     className="pos-button-secondary"
-                    onClick={stopScanner}
+                    onClick={() => {
+                      setScannerReady(false);
+                      setIsScanning(false);
+                    }}
                   >
                     Stop Scanner
                   </button>
@@ -270,7 +199,12 @@ export default function ProductList() {
             {/* Hidden Scanner Component */}
             <Scanner 
               active={isScanning && scannerReady} 
-              scannerId="product-list-scanner" 
+              scannerId="product-list-scanner"
+              onScanSuccess={(barcode) => {
+                setSearchBarcode(barcode);
+                setScannerReady(false);
+                setIsScanning(false);
+              }}
             />
           </div>
         </div>
