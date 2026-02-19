@@ -4,10 +4,11 @@ import { db } from "../firebase/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
-export default function Scanner({ active, scannerId = "reader", onScan }) {
+export default function Scanner({ active, scannerId = "reader", onScan, onScanSuccess }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
+  const isStartingRef = useRef(false);
 
   // Beep sound for every added product
   const beep = useRef(
@@ -15,35 +16,51 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   );
 
   const startScanner = useCallback(async () => {
-    if (scannerRef.current) return; // Prevent multiple scanners
+    // Prevent multiple scanners or if already starting
+    if (scannerRef.current || isStartingRef.current) return;
+    
+    isStartingRef.current = true;
 
     try {
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
         alert("No camera detected. Please connect a camera and try again.");
+        isStartingRef.current = false;
         return;
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
       alert("Unable to access cameras. Please check browser permissions.");
+      isStartingRef.current = false;
       return;
     }
 
-    const scanner = new Html5Qrcode(scannerId);
-    scannerRef.current = scanner;
+    try {
+      const scanner = new Html5Qrcode(scannerId);
+      scannerRef.current = scanner;
 
-    scanner
-      .start(
+      await scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
+        { 
+          fps: 10, 
+          qrbox: 250,
+          aspectRatio: 1.0,
+          disableFlip: false
+        },
         async (barcode) => {
           if (scanCooldownRef.current) return; // Prevent overlapping scans
 
           scanCooldownRef.current = true; // Set cooldown
 
-          // If custom onScan handler is provided, use it
-          if (onScan) {
-            onScan(barcode);
+          // Use onScanSuccess if provided (for POS component), otherwise onScan, otherwise default behavior
+          const scanHandler = onScanSuccess || onScan;
+          
+          if (scanHandler) {
+            try {
+              await scanHandler(barcode);
+            } catch (err) {
+              console.error("Scan handler error:", err);
+            }
           } else {
             // Default behavior: add to cart
             try {
@@ -90,26 +107,42 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
           setTimeout(() => {
             scanCooldownRef.current = false;
           }, 800); // 800ms between scans
+        },
+        (errorMessage) => {
+          // Ignore scanning errors - scanner continues running
+          // Only log if it's not a common "not found" error
+          if (!errorMessage.includes("NotFoundException")) {
+            console.debug("Scanning...", errorMessage);
+          }
         }
-      )
-      .catch((err) => {
-        console.error("Scanner start error:", err);
-        scannerRef.current = null;
-      });
-  }, [addToCart, onScan, scannerId]);
+      );
+      
+      isStartingRef.current = false;
+    } catch (err) {
+      console.error("Scanner start error:", err);
+      scannerRef.current = null;
+      isStartingRef.current = false;
+      
+      // Don't show alert if scanner is being stopped intentionally
+      if (active) {
+        alert("Failed to start scanner: " + err.message);
+      }
+    }
+  }, [addToCart, onScan, onScanSuccess, scannerId, active]);
 
-  const stopScanner = useCallback(() => {
+  const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
-      scannerRef.current
-        .stop()
-        .then(() => {
-          scannerRef.current = null;
-        })
-        .catch((err) => {
-          console.error("Scanner stop error:", err);
-          // Force cleanup even if there's an error
-          scannerRef.current = null;
-        });
+      try {
+        // Stop the scanner and clear the camera stream
+        await scannerRef.current.stop();
+        await scannerRef.current.clear();
+      } catch (err) {
+        console.error("Scanner stop error:", err);
+      } finally {
+        // Always cleanup the reference
+        scannerRef.current = null;
+        isStartingRef.current = false;
+      }
     }
   }, []);
 
@@ -117,15 +150,19 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      setTimeout(() => startScanner(), 0);
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 100);
+      
+      return () => {
+        clearTimeout(timer);
+        // Only stop if component is unmounting or active becomes false
+        // Don't stop here if active is still true (let the effect handle it)
+      };
     } else {
-      setTimeout(() => stopScanner(), 0);
+      stopScanner();
     }
-
-    return () => {
-      // Cleanup on unmount
-      setTimeout(() => stopScanner(), 0);
-    };
   }, [active, startScanner, stopScanner]);
 
   return null;
