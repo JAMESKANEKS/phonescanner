@@ -166,7 +166,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
 
   const stopScanner = useCallback(async () => {
     // Prevent multiple stop calls
-    if (isStoppingRef.current) return;
+    if (isStoppingRef.current && !scannerRef.current) return;
     
     if (scannerRef.current) {
       isStoppingRef.current = true;
@@ -178,7 +178,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         await scanner.stop();
       } catch (err) {
         // Ignore errors if scanner is already stopped
-        if (!err.message?.includes("already") && !err.message?.includes("NotStartedError")) {
+        if (!err.message?.includes("already") && !err.message?.includes("NotStartedError") && !err.message?.includes("NotFoundException")) {
           console.debug("Scanner stop error (may already be stopped):", err.message);
         }
       }
@@ -187,8 +187,24 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         // Always clear to release camera resources
         await scanner.clear();
       } catch (err) {
-        // Ignore clear errors
+        // Ignore clear errors - scanner may already be cleared
         console.debug("Scanner clear error (may already be cleared):", err.message);
+      }
+      
+      // Also try to stop any active media tracks directly (fallback)
+      try {
+        const videoElement = document.querySelector(`#${scannerId} video`);
+        if (videoElement && videoElement.srcObject) {
+          const stream = videoElement.srcObject;
+          const tracks = stream.getTracks();
+          tracks.forEach(track => {
+            track.stop();
+          });
+          videoElement.srcObject = null;
+        }
+      } catch (err) {
+        // Ignore errors - this is a fallback cleanup
+        console.debug("Direct track cleanup error:", err.message);
       }
       
       // Small delay to ensure camera is fully released before allowing new scanner
@@ -202,7 +218,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       isStartingRef.current = false;
       isStoppingRef.current = false;
     }
-  }, []);
+  }, [scannerId]);
 
 
   // React to `active` prop to start/stop
@@ -231,6 +247,41 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       stopScanner();
     };
   }, [active, startScanner, stopScanner]);
+
+  // Stop camera when navigating away or closing page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Stop scanner immediately when page is unloading
+      if (scannerRef.current) {
+        const scanner = scannerRef.current;
+        scannerRef.current = null;
+        scanner.stop().catch(() => {}).finally(() => {
+          scanner.clear().catch(() => {});
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      // Stop scanner when page becomes hidden (user switches tabs, minimizes, etc.)
+      if (document.hidden && scannerRef.current) {
+        stopScanner();
+      }
+    };
+
+    // Listen for page unload events
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup listeners
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Ensure camera is stopped on unmount
+      stopScanner();
+    };
+  }, [stopScanner]);
 
   return null;
 }
