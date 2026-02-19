@@ -148,19 +148,14 @@ export default function ProductList() {
               />
               <button
                 className={isScanning ? "pos-button-secondary" : "pos-button"}
-                onClick={async () => {
+                onClick={() => {
                   if (!isScanning) {
-                    // When starting scanner, wait longer to ensure camera is released from previous page
-                    setScannerReady(false);
                     setIsScanning(true);
-                    
-                    // Wait longer to ensure camera from previous page is fully released
-                    // ProductList needs extra time because it's often navigated to from POS
-                    const waitTime = !isPageReady ? 1500 : 1000;
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    
-                    // Now enable the scanner component
-                    setScannerReady(true);
+                    // Small delay to ensure DOM is ready, then enable scanner
+                    // Scanner component handles camera release timing internally
+                    setTimeout(() => {
+                      setScannerReady(true);
+                    }, 100);
                   } else {
                     setScannerReady(false);
                     setIsScanning(false);
