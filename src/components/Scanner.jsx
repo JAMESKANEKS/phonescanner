@@ -101,10 +101,10 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       console.error("Error checking cameras:", err);
       const errMessage = err?.message || "";
       const errName = err?.name || "";
-      // If camera is in use or permission error, wait longer and retry
+      // If camera is in use or permission error, wait longer and retry silently first
       if (errMessage.includes("in use") || errMessage.includes("Permission") || errMessage.includes("NotAllowedError") || errName === "NotAllowedError") {
-        // Wait longer and retry
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Wait longer and retry silently (don't show error on first attempt)
+        await new Promise(resolve => setTimeout(resolve, 1000));
         try {
           const cameras = await Html5Qrcode.getCameras();
           if (!cameras || cameras.length === 0) {
@@ -116,7 +116,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
           console.error("Camera retry failed:", retryErr);
           // One more retry after stopping all tracks
           stopAllVideoTracks();
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 800));
           try {
             const cameras = await Html5Qrcode.getCameras();
             if (!cameras || cameras.length === 0) {
@@ -126,12 +126,14 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
             }
           } catch (finalErr) {
             console.error("Final camera access attempt failed:", finalErr);
+            // Only show error after all retries have failed
             alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
             isStartingRef.current = false;
             return;
           }
         }
       } else {
+        // For other errors, show alert immediately
         alert("Unable to access cameras. Please check browser permissions.");
         isStartingRef.current = false;
         return;

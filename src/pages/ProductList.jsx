@@ -91,10 +91,10 @@ export default function ProductList() {
   useEffect(() => {
     setTimeout(() => fetchProducts(), 0);
     
-    // Wait a bit when page loads to ensure any previous scanner is fully stopped
+    // Wait longer when page loads to ensure any previous scanner is fully stopped
     const timer = setTimeout(() => {
       setIsPageReady(true);
-    }, 800);
+    }, 1200);
     
     return () => clearTimeout(timer);
   }, []);
@@ -224,12 +224,13 @@ export default function ProductList() {
                 className={isScanning ? "pos-button-secondary" : "pos-button"}
                 onClick={async () => {
                   if (!isScanning) {
-                    // When starting scanner, wait a bit to ensure camera is released from previous page
+                    // When starting scanner, wait longer to ensure camera is released from previous page
                     setScannerReady(false);
                     setIsScanning(true);
                     
                     // Wait longer to ensure camera from previous page is fully released
-                    const waitTime = !isPageReady ? 1000 : 600;
+                    // ProductList needs extra time because it's often navigated to from POS
+                    const waitTime = !isPageReady ? 1500 : 1000;
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                     
                     // Now enable the scanner component
