@@ -13,6 +13,8 @@ export default function ProductList() {
   const [editData, setEditData] = useState({});
   const [searchBarcode, setSearchBarcode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isPageReady, setIsPageReady] = useState(false);
+  const [scannerReady, setScannerReady] = useState(false);
 
   const barcodeRefs = useRef({});
   const scannerRef = useRef(null);
@@ -88,6 +90,13 @@ export default function ProductList() {
 
   useEffect(() => {
     setTimeout(() => fetchProducts(), 0);
+    
+    // Wait a bit when page loads to ensure any previous scanner is fully stopped
+    const timer = setTimeout(() => {
+      setIsPageReady(true);
+    }, 800);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // 🔥 FILTER PRODUCTS BASED ON SEARCH BARCODE
@@ -213,7 +222,24 @@ export default function ProductList() {
               />
               <button
                 className={isScanning ? "pos-button-secondary" : "pos-button"}
-                onClick={() => setIsScanning(!isScanning)}
+                onClick={async () => {
+                  if (!isScanning) {
+                    // When starting scanner, wait a bit to ensure camera is released from previous page
+                    setScannerReady(false);
+                    setIsScanning(true);
+                    
+                    // Wait longer to ensure camera from previous page is fully released
+                    const waitTime = !isPageReady ? 1000 : 600;
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    
+                    // Now enable the scanner component
+                    setScannerReady(true);
+                  } else {
+                    setScannerReady(false);
+                    setIsScanning(false);
+                  }
+                }}
+                disabled={!isPageReady && !isScanning}
               >
                 {isScanning ? "Stop" : "Scan"}
               </button>
@@ -241,7 +267,10 @@ export default function ProductList() {
             )}
 
             {/* Hidden Scanner Component */}
-            <Scanner active={isScanning} scannerId="product-list-scanner" />
+            <Scanner 
+              active={isScanning && scannerReady} 
+              scannerId="product-list-scanner" 
+            />
           </div>
         </div>
       </div>
