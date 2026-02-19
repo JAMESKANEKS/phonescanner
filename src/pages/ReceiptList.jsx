@@ -43,7 +43,7 @@ export default function ReceiptList() {
   };
 
   useEffect(() => {
-    fetchSales();
+    setTimeout(() => fetchSales(), 0);
   }, []);
 
   // 🔹 DELETE RECEIPT

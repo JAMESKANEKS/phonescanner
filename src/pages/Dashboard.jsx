@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { db } from "../firebase/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
@@ -21,49 +21,15 @@ export default function Dashboard() {
   const [topProducts, setTopProducts] = useState([]);
   const [chartData, setChartData] = useState([]);
 
-  // 🔥 Fetch ALL sales on first load
-  useEffect(() => {
-    fetchSales();
-    fetchTotalUniqueProducts();
-  }, []);
-
   // 🔥 Fetch total unique products
-  const fetchTotalUniqueProducts = async () => {
+  const fetchTotalUniqueProducts = useCallback(async () => {
     try {
       const snapshot = await getDocs(collection(db, "products"));
       setTotalUniqueProducts(snapshot.size);
     } catch (error) {
       console.error("Error fetching total products:", error);
     }
-  };
-
-  const fetchSales = async () => {
-    let q;
-
-    // ✅ If no date → ALL TIME
-    if (!fromDate || !toDate) {
-      q = collection(db, "sales");
-    } else {
-      const start = new Date(fromDate);
-      const end = new Date(toDate);
-      end.setHours(23, 59, 59, 999);
-
-      q = query(
-        collection(db, "sales"),
-        where("date", ">=", start),
-        where("date", "<=", end)
-      );
-    }
-
-    const snapshot = await getDocs(q);
-
-    const data = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    calculateStats(data);
-  };
+  }, []);
 
   // 🔥 Calculate dashboard stats
   const calculateStats = (data) => {
@@ -105,6 +71,42 @@ export default function Dashboard() {
 
     setChartData(chart);
   };
+
+  const fetchSales = useCallback(async () => {
+    let q;
+
+    // ✅ If no date → ALL TIME
+    if (!fromDate || !toDate) {
+      q = collection(db, "sales");
+    } else {
+      const start = new Date(fromDate);
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+
+      q = query(
+        collection(db, "sales"),
+        where("date", ">=", start),
+        where("date", "<=", end)
+      );
+    }
+
+    const snapshot = await getDocs(q);
+
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    calculateStats(data);
+  }, [fromDate, toDate]);
+
+  // 🔥 Fetch ALL sales on first load
+  useEffect(() => {
+    setTimeout(() => {
+      fetchSales();
+      fetchTotalUniqueProducts();
+    }, 0);
+  }, [fetchSales, fetchTotalUniqueProducts]);
 
   return (
     <div>

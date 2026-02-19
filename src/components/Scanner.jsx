@@ -1,40 +1,36 @@
-import { useEffect, useContext, useRef, useState } from "react";
+import { useEffect, useContext, useRef, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { db } from "../firebase/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
 export default function Scanner({ active }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
-  const [isScanning, setIsScanning] = useState(true);
 
   // Beep sound for every added product
   const beep = useRef(
     new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
   );
 
-  const startScanner = async () => {
+  const startScanner = useCallback(async () => {
     if (scannerRef.current) return; // Prevent multiple scanners
 
     try {
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
         alert("No camera detected. Please connect a camera and try again.");
-        setIsScanning(false);
         return;
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
       alert("Unable to access cameras. Please check browser permissions.");
-      setIsScanning(false);
       return;
     }
 
     const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
-    setIsScanning(true);
 
     scanner
       .start(
@@ -92,38 +88,37 @@ export default function Scanner({ active }) {
       )
       .catch((err) => {
         console.error("Scanner start error:", err);
-        setIsScanning(false);
         scannerRef.current = null;
       });
-  };
+  }, [addToCart]);
 
-  const stopScanner = () => {
+  const stopScanner = useCallback(() => {
     if (scannerRef.current) {
       scannerRef.current
         .stop()
         .then(() => {
           scannerRef.current = null;
-          setIsScanning(false);
         })
         .catch((err) => {
           console.error("Scanner stop error:", err);
         });
     }
-  };
+  }, []);
+
 
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      startScanner();
+      setTimeout(() => startScanner(), 0);
     } else {
-      stopScanner();
+      setTimeout(() => stopScanner(), 0);
     }
 
     return () => {
       // Cleanup on unmount
-      stopScanner();
+      setTimeout(() => stopScanner(), 0);
     };
-  }, [active]);
+  }, [active, startScanner, stopScanner]);
 
   return null;
 }

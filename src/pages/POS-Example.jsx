@@ -2,12 +2,10 @@ import { useContext, useState } from "react";
 import Scanner from "../components/Scanner";
 import { CartContext } from "../context/CartContext";
 import { syncService } from "../services/syncService";
-import { useNavigate } from "react-router-dom";
 import { where } from "firebase/firestore";
 
 export default function POS() {
-  const { cart, addToCart } = useContext(CartContext); 
-  const navigate = useNavigate();
+  const { cart, addToCart } = useContext(CartContext);
   const [manualBarcode, setManualBarcode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
 

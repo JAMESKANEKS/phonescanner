@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { db } from "../firebase/firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import JsBarcode from "jsbarcode";
@@ -17,7 +17,60 @@ export default function ProductList() {
   const scannerRef = useRef(null);
   const scannerContainerRef = useRef(null);
 
-  // 🔥 FETCH PRODUCTS
+  // 🛑 STOP BARCODE SCANNER
+  const stopScanner = useCallback(() => {
+    if (scannerRef.current) {
+      scannerRef.current.stop().then(() => {
+        scannerRef.current = null;
+        setIsScanning(false);
+      }).catch((err) => {
+        console.error("Error stopping scanner:", err);
+      });
+    }
+  }, []);
+
+  // 📷 START BARCODE SCANNER
+  const startScanner = useCallback(async () => {
+    if (scannerRef.current) return; // Prevent multiple scanners
+
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        alert("No camera detected. Please connect a camera and try again.");
+        setIsScanning(false);
+        return;
+      }
+    } catch (err) {
+      console.error("Error checking cameras:", err);
+      alert("Unable to access cameras. Please check browser permissions.");
+      setIsScanning(false);
+      return;
+    }
+
+    // Html5Qrcode expects a DOM element ID (string), not than element itself
+    const scanner = new Html5Qrcode("product-list-scanner");
+    scannerRef.current = scanner;
+
+    scanner
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (barcode) => {
+          setSearchBarcode(barcode);
+          stopScanner();
+        },
+        (error) => {
+          console.log("Scan error:", error);
+        }
+      )
+      .catch((err) => {
+        console.error("Error starting scanner:", err);
+        alert("Error starting camera scanner. Please check camera permissions.");
+        setIsScanning(false);
+      });
+  }, [setSearchBarcode, stopScanner]);
+
+  // �� FETCH PRODUCTS
   const fetchProducts = async () => {
     const snapshot = await getDocs(collection(db, "products"));
     const list = [];
@@ -33,40 +86,40 @@ export default function ProductList() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    setTimeout(() => fetchProducts(), 0);
   }, []);
 
   // 🔥 FILTER PRODUCTS BASED ON SEARCH BARCODE
   useEffect(() => {
     if (searchBarcode.trim() === "") {
-      setFilteredProducts(products);
+      setTimeout(() => setFilteredProducts(products), 0);
     } else {
       const filtered = products.filter((product) =>
         product.barcode.toLowerCase().includes(searchBarcode.toLowerCase())
       );
-      setFilteredProducts(filtered);
+      setTimeout(() => setFilteredProducts(filtered), 0);
     }
   }, [products, searchBarcode]);
 
   // 🧹 CLEANUP SCANNER ON UNMOUNT
   useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().then(() => {
-          scannerRef.current = null;
-        }).catch((err) => console.error("Error cleaning up scanner:", err));
-      }
-    };
-  }, []);
+  return () => {
+    if (scannerRef.current) {
+      scannerRef.current.stop().then(() => {
+        scannerRef.current = null;
+      }).catch((err) => console.error("Error cleaning up scanner:", err));
+    }
+  };
+}, []);
 
   // 📷 START SCANNER WHEN isScanning CHANGES TO TRUE
   useEffect(() => {
     if (isScanning && scannerContainerRef.current) {
-      startScanner();
+      setTimeout(() => startScanner(), 0);
     } else if (!isScanning) {
-      stopScanner();
+      setTimeout(() => stopScanner(), 0);
     }
-  }, [isScanning]);
+  }, [isScanning, startScanner, stopScanner]);
 
 
   // 🔥 GENERATE BARCODE WHEN SHOWN
@@ -135,60 +188,6 @@ export default function ProductList() {
       }
     }
   };
-
-  // 📷 START BARCODE SCANNER
-  const startScanner = async () => {
-    if (scannerRef.current) return; // Prevent multiple scanners
-
-    try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        alert("No camera detected. Please connect a camera and try again.");
-        setIsScanning(false);
-        return;
-      }
-    } catch (err) {
-      console.error("Error checking cameras:", err);
-      alert("Unable to access cameras. Please check browser permissions.");
-      setIsScanning(false);
-      return;
-    }
-
-    // Html5Qrcode expects a DOM element ID (string), not the element itself
-    const scanner = new Html5Qrcode("product-list-scanner");
-    scannerRef.current = scanner;
-
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (barcode) => {
-          setSearchBarcode(barcode);
-          stopScanner();
-        },
-        (error) => {
-          console.log("Scan error:", error);
-        }
-      )
-      .catch((err) => {
-        console.error("Error starting scanner:", err);
-        alert("Error starting camera scanner. Please check camera permissions.");
-        setIsScanning(false);
-      });
-  };
-
-  // 🛑 STOP BARCODE SCANNER
-  const stopScanner = () => {
-    if (scannerRef.current) {
-      scannerRef.current.stop().then(() => {
-        scannerRef.current = null;
-        setIsScanning(false);
-      }).catch((err) => {
-        console.error("Error stopping scanner:", err);
-      });
-    }
-  };
-
 
   return (
     <div>

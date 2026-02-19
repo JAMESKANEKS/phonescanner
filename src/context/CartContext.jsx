@@ -1,6 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect } from "react";
 import { db } from "../firebase/firebase";
-import { collection, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
 
 export const CartContext = createContext();
 
@@ -15,7 +16,7 @@ export function CartProvider({ children }) {
       storedDeviceId = "device_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
       localStorage.setItem("deviceId", storedDeviceId);
     }
-    setDeviceId(storedDeviceId);
+    setTimeout(() => setDeviceId(storedDeviceId), 0);
   }, []);
 
   // Load cart from database on component mount

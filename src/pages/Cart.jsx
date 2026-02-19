@@ -10,9 +10,6 @@ import {
   onSnapshot,
   updateDoc,
   getDoc,
-  query,
-  where,
-  getDocs,
 } from "firebase/firestore";
 
 export default function Cart() {
@@ -127,9 +124,9 @@ export default function Cart() {
   useEffect(() => {
     const cashNum = parseFloat(cash);
     if (!isNaN(cashNum)) {
-      setChange(cashNum - grandTotal);
+      setTimeout(() => setChange(cashNum - grandTotal), 0);
     } else {
-      setChange(0);
+      setTimeout(() => setChange(0), 0);
     }
   }, [cash, grandTotal]);
 
