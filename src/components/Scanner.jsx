@@ -11,6 +11,18 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
   const isStartingRef = useRef(false);
   const isStoppingRef = useRef(false);
 
+  // Refs for callbacks so startScanner doesn't change when parent re-renders (keeps camera running)
+  const onScanRef = useRef(onScan);
+  const onScanSuccessRef = useRef(onScanSuccess);
+  const addToCartRef = useRef(addToCart);
+
+  // Update refs when props change
+  useEffect(() => {
+    onScanRef.current = onScan;
+    onScanSuccessRef.current = onScanSuccess;
+    addToCartRef.current = addToCart;
+  }, [onScan, onScanSuccess, addToCart]);
+
   // Beep sound for every added product
   const beep = useRef(
     new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
@@ -42,6 +54,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
             return;
           }
         } catch (retryErr) {
+          console.error("Camera retry failed:", retryErr);
           alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
           isStartingRef.current = false;
           return;
@@ -70,8 +83,8 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
 
           scanCooldownRef.current = true; // Set cooldown
 
-          // Use onScanSuccess if provided (for POS component), otherwise onScan, otherwise default behavior
-          const scanHandler = onScanSuccess || onScan;
+          // Use latest handlers from refs (scanner keeps running, no restart on parent re-render)
+          const scanHandler = onScanSuccessRef.current || onScanRef.current;
           
           if (scanHandler) {
             try {
@@ -103,7 +116,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
                     return;
                   }
 
-                  addToCart({ id: docSnapshot.id, ...productData });
+                  addToCartRef.current({ id: docSnapshot.id, ...productData });
 
                   // ✅ Play beep every time a product is added
                   beep.current.currentTime = 0; // reset for overlapping
@@ -149,7 +162,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         alert("Failed to start scanner: " + err.message);
       }
     }
-  }, [addToCart, onScan, onScanSuccess, scannerId, active]);
+  }, [scannerId, active]);
 
   const stopScanner = useCallback(async () => {
     // Prevent multiple stop calls

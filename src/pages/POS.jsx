@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useCallback } from "react";
 import Scanner from "../components/Scanner";
 import { CartContext } from "../context/CartContext";
 import { db } from "../firebase/firebase";
@@ -16,8 +16,8 @@ export default function POS() {
   const [manualBarcode, setManualBarcode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
 
-  // ⭐ FUNCTION: ADD PRODUCT BY BARCODE (scanner or manual)
-  const handleBarcodeScan = async (barcode) => {
+  // ⭐ FUNCTION: ADD PRODUCT BY BARCODE (scanner or manual) — stable ref so scanner doesn't restart
+  const handleBarcodeScan = useCallback(async (barcode) => {
     if (!barcode) return;
 
     try {
@@ -52,7 +52,7 @@ export default function POS() {
       console.error(err);
       alert("Error fetching product");
     }
-  };
+  }, [addToCart]);
 
   // ⭐ MANUAL INPUT ADD
   const handleAddManualBarcode = () => {
