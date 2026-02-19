@@ -18,9 +18,6 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
     if (scannerRef.current) return; // Prevent multiple scanners
 
     try {
-      // Ensure any existing scanner instances are cleaned up first
-      await Html5Qrcode.getCameras();
-      
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
         alert("No camera detected. Please connect a camera and try again.");
@@ -28,28 +25,12 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      // Try to clear any existing scanner instances
-      try {
-        if (scannerRef.current) {
-          await scannerRef.current.stop();
-          scannerRef.current = null;
-        }
-      } catch (cleanupErr) {
-        console.log("Cleanup attempt:", cleanupErr);
+      if (err.name === 'NotAllowedError') {
+        alert("Camera access denied. Please allow camera permissions in your browser and refresh the page.");
+      } else {
+        alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
       }
-      
-      // Retry camera access after cleanup
-      try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (!cameras || cameras.length === 0) {
-          alert("No camera detected. Please connect a camera and try again.");
-          return;
-        }
-      } catch (retryErr) {
-        console.error("Retry failed:", retryErr);
-        alert("Unable to access cameras. Please check browser permissions and refresh the page.");
-        return;
-      }
+      return;
     }
 
     const scanner = new Html5Qrcode(scannerId);
@@ -118,6 +99,17 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
       .catch((err) => {
         console.error("Scanner start error:", err);
         scannerRef.current = null;
+        
+        // Provide more specific error messages
+        if (err.name === 'NotAllowedError') {
+          alert("Camera access denied. Please allow camera permissions and refresh the page.");
+        } else if (err.name === 'NotFoundError') {
+          alert("No camera found. Please connect a camera and try again.");
+        } else if (err.name === 'NotReadableError') {
+          alert("Camera is already in use by another application. Please close other camera apps and try again.");
+        } else {
+          alert("Failed to start camera scanner: " + err.message);
+        }
       });
   }, [addToCart, onScan, scannerId]);
 
@@ -134,7 +126,7 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
           try {
             scannerRef.current.clear();
           } catch (clearErr) {
-            console.log("Clear error:", clearErr);
+            console.error("Scanner clear error:", clearErr);
           }
           scannerRef.current = null;
         });
@@ -145,15 +137,14 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      // Add a small delay to ensure previous scanner is fully cleaned up
-      setTimeout(() => startScanner(), 300);
+      startScanner();
     } else {
-      setTimeout(() => stopScanner(), 0);
+      stopScanner();
     }
 
     return () => {
       // Cleanup on unmount
-      setTimeout(() => stopScanner(), 0);
+      stopScanner();
     };
   }, [active, startScanner, stopScanner]);
 
