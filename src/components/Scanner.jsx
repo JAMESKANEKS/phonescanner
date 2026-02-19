@@ -8,6 +8,8 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
+  const lastScannedBarcodeRef = useRef("");
+  const lastScanTimeRef = useRef(0);
 
   // Beep sound for every added product
   const beep = useRef(
@@ -37,9 +39,20 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         async (barcode) => {
-          if (scanCooldownRef.current) return; // Prevent overlapping scans
+          const currentTime = Date.now();
+          
+          // Prevent duplicate scans of the same barcode within 200ms
+          if (barcode === lastScannedBarcodeRef.current && 
+              currentTime - lastScanTimeRef.current < 200) {
+            return;
+          }
 
-          scanCooldownRef.current = true; // Set cooldown
+          // Prevent overlapping scans
+          if (scanCooldownRef.current) return;
+
+          scanCooldownRef.current = true;
+          lastScannedBarcodeRef.current = barcode;
+          lastScanTimeRef.current = currentTime;
 
           // If custom onScan handler is provided, use it
           if (onScan) {
@@ -86,10 +99,10 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
             }
           }
 
-          // ⏱ Small delay to prevent ultra-rapid duplicates
+          // ⏱ Reduced delay for rapid scanning (150ms instead of 800ms)
           setTimeout(() => {
             scanCooldownRef.current = false;
-          }, 800); // 800ms between scans
+          }, 150);
         }
       )
       .catch((err) => {
