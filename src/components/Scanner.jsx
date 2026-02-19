@@ -8,8 +8,6 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
-  const lastScannedBarcodeRef = useRef("");
-  const lastScanTimeRef = useRef(0);
 
   // Beep sound for every added product
   const beep = useRef(
@@ -22,12 +20,12 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
     try {
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
-        alert("No camera detected. Please connect a camera and try again.");
+        console.warn("No camera detected");
         return;
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      alert("Unable to access cameras. Please check browser permissions.");
+      // Don't show alert immediately - let the scanner handle it gracefully
       return;
     }
 
@@ -37,22 +35,15 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
     scanner
       .start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
+        { 
+          fps: 15, // Increased FPS for better responsiveness
+          qrbox: 250,
+          aspectRatio: 1.0
+        },
         async (barcode) => {
-          const currentTime = Date.now();
-          
-          // Prevent duplicate scans of the same barcode within 200ms
-          if (barcode === lastScannedBarcodeRef.current && 
-              currentTime - lastScanTimeRef.current < 200) {
-            return;
-          }
+          if (scanCooldownRef.current) return; // Prevent overlapping scans
 
-          // Prevent overlapping scans
-          if (scanCooldownRef.current) return;
-
-          scanCooldownRef.current = true;
-          lastScannedBarcodeRef.current = barcode;
-          lastScanTimeRef.current = currentTime;
+          scanCooldownRef.current = true; // Set cooldown
 
           // If custom onScan handler is provided, use it
           if (onScan) {
@@ -99,14 +90,20 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
             }
           }
 
-          // ⏱ Reduced delay for rapid scanning (150ms instead of 800ms)
+          // ⏱ Small delay to prevent ultra-rapid duplicates
           setTimeout(() => {
             scanCooldownRef.current = false;
-          }, 150);
+          }, 300); // Reduced to 300ms for faster scanning
         }
       )
       .catch((err) => {
         console.error("Scanner start error:", err);
+        // Only show user-friendly error for permission issues
+        if (err.name === 'NotAllowedError') {
+          alert("Camera access denied. Please allow camera permissions in your browser.");
+        } else if (err.name === 'NotFoundError') {
+          alert("No camera found. Please connect a camera and try again.");
+        }
         scannerRef.current = null;
       });
   }, [addToCart, onScan, scannerId]);
@@ -130,15 +127,18 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      setTimeout(() => startScanner(), 0);
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 100);
+      return () => clearTimeout(timer);
     } else {
-      setTimeout(() => stopScanner(), 0);
+      // Small delay to prevent flicker
+      const timer = setTimeout(() => {
+        stopScanner();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      // Cleanup on unmount
-      setTimeout(() => stopScanner(), 0);
-    };
   }, [active, startScanner, stopScanner]);
 
   return null;

@@ -55,10 +55,10 @@ export default function ProductList() {
     scanner
       .start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
+        { fps: 15, qrbox: 250 },
         (barcode) => {
           setSearchBarcode(barcode);
-          stopScanner();
+          // Keep scanner active for continuous scanning
         },
         (error) => {
           console.log("Scan error:", error);
