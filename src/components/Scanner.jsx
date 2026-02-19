@@ -4,7 +4,7 @@ import { db } from "../firebase/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
-export default function Scanner({ active }) {
+export default function Scanner({ active, scannerId = "reader", onScan }) {
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
@@ -29,7 +29,7 @@ export default function Scanner({ active }) {
       return;
     }
 
-    const scanner = new Html5Qrcode("reader");
+    const scanner = new Html5Qrcode(scannerId);
     scannerRef.current = scanner;
 
     scanner
@@ -41,42 +41,48 @@ export default function Scanner({ active }) {
 
           scanCooldownRef.current = true; // Set cooldown
 
-          try {
-            // 🔎 Search product in Firestore
-            const q = query(
-              collection(db, "products"),
-              where("barcode", "==", barcode)
-            );
-            const snapshot = await getDocs(q);
+          // If custom onScan handler is provided, use it
+          if (onScan) {
+            onScan(barcode);
+          } else {
+            // Default behavior: add to cart
+            try {
+              // 🔎 Search product in Firestore
+              const q = query(
+                collection(db, "products"),
+                where("barcode", "==", barcode)
+              );
+              const snapshot = await getDocs(q);
 
-            if (!snapshot.empty) {
-              snapshot.forEach(async (docSnapshot) => {
-                const productData = docSnapshot.data();
-                const currentStock = productData.stock || 0;
+              if (!snapshot.empty) {
+                snapshot.forEach(async (docSnapshot) => {
+                  const productData = docSnapshot.data();
+                  const currentStock = productData.stock || 0;
 
-                // 🔍 CHECK STOCK AVAILABILITY
-                if (currentStock <= 0) {
-                  alert(`⚠️ Product "${productData.name}" is out of stock!`);
-                  return;
-                }
+                  // 🔍 CHECK STOCK AVAILABILITY
+                  if (currentStock <= 0) {
+                    alert(`⚠️ Product "${productData.name}" is out of stock!`);
+                    return;
+                  }
 
-                addToCart({ id: docSnapshot.id, ...productData });
+                  addToCart({ id: docSnapshot.id, ...productData });
 
-                // ✅ Play beep every time a product is added
-                beep.current.currentTime = 0; // reset for overlapping
-                beep.current.play();
-              });
-            }
-          } catch (err) {
-            console.error("Scan error:", err);
-            if (err.code === "permission-denied") {
-              alert("Permission denied: You don't have access to camera or products.");
-            } else if (err.code === "unavailable") {
-              alert("Service unavailable: Please check your internet connection.");
-            } else if (err.code === "not-found") {
-              alert("Product not found. It may have been deleted.");
-            } else {
-              alert("Error scanning product: " + err.message);
+                  // ✅ Play beep every time a product is added
+                  beep.current.currentTime = 0; // reset for overlapping
+                  beep.current.play();
+                });
+              }
+            } catch (err) {
+              console.error("Scan error:", err);
+              if (err.code === "permission-denied") {
+                alert("Permission denied: You don't have access to camera or products.");
+              } else if (err.code === "unavailable") {
+                alert("Service unavailable: Please check your internet connection.");
+              } else if (err.code === "not-found") {
+                alert("Product not found. It may have been deleted.");
+              } else {
+                alert("Error scanning product: " + err.message);
+              }
             }
           }
 
@@ -90,7 +96,7 @@ export default function Scanner({ active }) {
         console.error("Scanner start error:", err);
         scannerRef.current = null;
       });
-  }, [addToCart]);
+  }, [addToCart, onScan, scannerId]);
 
   const stopScanner = useCallback(() => {
     if (scannerRef.current) {
@@ -101,6 +107,8 @@ export default function Scanner({ active }) {
         })
         .catch((err) => {
           console.error("Scanner stop error:", err);
+          // Force cleanup even if there's an error
+          scannerRef.current = null;
         });
     }
   }, []);

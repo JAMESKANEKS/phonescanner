@@ -3,6 +3,7 @@ import { db } from "../firebase/firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import JsBarcode from "jsbarcode";
 import { Html5Qrcode } from "html5-qrcode";
+import Scanner from "../components/Scanner";
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -238,6 +239,9 @@ export default function ProductList() {
                 </div>
               </div>
             )}
+
+            {/* Hidden Scanner Component */}
+            <Scanner active={isScanning} scannerId="product-list-scanner" />
           </div>
         </div>
       </div>

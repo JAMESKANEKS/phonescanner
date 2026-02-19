@@ -10,26 +10,30 @@ const PWAInstallPrompt = () => {
 
   useEffect(() => {
     // Detect device and browser
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-    setIsDesktop(!isMobile);
-    
-    // Detect browser
-    if (userAgent.includes('chrome') && !userAgent.includes('edg')) {
-      setBrowser('chrome');
-    } else if (userAgent.includes('firefox')) {
-      setBrowser('firefox');
-    } else if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
-      setBrowser('safari');
-    } else if (userAgent.includes('edg')) {
-      setBrowser('edge');
-    }
+    setTimeout(() => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsDesktop(!isMobile);
+      
+      // Detect browser
+      if (userAgent.includes('chrome') && !userAgent.includes('edg')) {
+        setBrowser('chrome');
+      } else if (userAgent.includes('firefox')) {
+        setBrowser('firefox');
+      } else if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
+        setBrowser('safari');
+      } else if (userAgent.includes('edg')) {
+        setBrowser('edge');
+      }
+    }, 0);
 
     // Check if desktop prompt was previously dismissed
     const wasDismissed = localStorage.getItem('pwa-desktop-dismissed');
-    if (wasDismissed) {
-      setDismissedDesktop(true);
-    }
+    setTimeout(() => {
+      if (wasDismissed) {
+        setDismissedDesktop(true);
+      }
+    }, 0);
 
     // Show desktop prompt after 3 seconds if not dismissed and on desktop
     if (isDesktop && !wasDismissed) {
@@ -38,7 +42,7 @@ const PWAInstallPrompt = () => {
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [isDesktop]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {

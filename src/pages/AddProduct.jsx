@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import JsBarcode from "jsbarcode";
-import { Html5Qrcode } from "html5-qrcode";
+import Scanner from "../components/Scanner";
 import { db } from "../firebase/firebase";
 import {
   collection,
@@ -16,7 +16,6 @@ export default function AddProduct() {
   const [stock, setStock] = useState("");
   const [barcode, setBarcode] = useState("");
   const barcodeRef = useRef(null);
-  const scannerRef = useRef(null);
   const [scanning, setScanning] = useState(false);
 
   // 🔥 Generate Unique Barcode
@@ -32,47 +31,18 @@ export default function AddProduct() {
     });
   };
 
-  // 🔍 Scan Barcode from Camera
-  const startScan = async () => {
-    try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        alert("No camera detected. Please connect a camera and try again.");
-        return;
-      }
-    } catch (err) {
-      console.error("Error checking cameras:", err);
-      alert("Unable to access cameras. Please check browser permissions.");
-      return;
-    }
+  // 🔍 Handle scanned barcode from Scanner component
+  const handleScan = (scannedCode) => {
+    setBarcode(scannedCode);
 
-    setScanning(true);
-    const html5Qrcode = new Html5Qrcode("barcode-scanner");
+    JsBarcode(barcodeRef.current, scannedCode, {
+      format: "CODE128",
+      width: 2,
+      height: 60,
+      displayValue: true,
+    });
 
-    html5Qrcode
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (scannedCode) => {
-          setBarcode(scannedCode);
-
-          JsBarcode(barcodeRef.current, scannedCode, {
-            format: "CODE128",
-            width: 2,
-            height: 60,
-            displayValue: true,
-          });
-
-          html5Qrcode.stop();
-          setScanning(false);
-        }
-      )
-      .catch((err) => {
-        console.error("Scanner error:", err);
-        setScanning(false);
-      });
-
-    scannerRef.current = html5Qrcode;
+    setScanning(false);
   };
 
   // 💾 SAVE PRODUCT (PREVENT DUPLICATE BARCODE)
@@ -175,10 +145,9 @@ export default function AddProduct() {
               </button>
               <button
                 className="pos-button-secondary"
-                onClick={startScan}
-                disabled={scanning}
+                onClick={() => setScanning(!scanning)}
               >
-                {scanning ? "Scanning..." : "Scan Barcode"}
+                {scanning ? "Stop Scanner" : "Scan Barcode"}
               </button>
               <button className="pos-button" onClick={saveProduct}>
                 Save Product
@@ -208,6 +177,13 @@ export default function AddProduct() {
               </div>
             </div>
           </div>
+
+          {/* Hidden Scanner Component */}
+          <Scanner 
+            active={scanning} 
+            scannerId="barcode-scanner" 
+            onScan={handleScan}
+          />
         </div>
       </div>
     </div>
