@@ -2,69 +2,78 @@ import { useContext, useState } from "react";
 import Scanner from "../components/Scanner";
 import { CartContext } from "../context/CartContext";
 import { db } from "../firebase/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs
+} from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 export default function POS() {
-  const { cart, addToCart } = useContext(CartContext); 
+  const { cart, addToCart } = useContext(CartContext);
   const navigate = useNavigate();
   const [manualBarcode, setManualBarcode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
 
-  // ✅ Add product manually by barcode
-  const handleAddManualBarcode = async () => {
-    if (!manualBarcode) return alert("Enter a barcode!");
+  // ⭐ FUNCTION: ADD PRODUCT BY BARCODE (scanner or manual)
+  const handleBarcodeScan = async (barcode) => {
+    if (!barcode) return;
 
     try {
-      const q = query(collection(db, "products"), where("barcode", "==", manualBarcode));
+      const q = query(
+        collection(db, "products"),
+        where("barcode", "==", barcode)
+      );
+
       const snapshot = await getDocs(q);
 
       if (snapshot.empty) {
-        return alert("Product not found!");
+        alert("❌ Product not found!");
+        return;
       }
 
       const productDoc = snapshot.docs[0];
-      const productData = productDoc.data();
-      const currentStock = productData.stock || 0;
+      const data = productDoc.data();
 
-      // 🔍 CHECK STOCK AVAILABILITY
-      if (currentStock <= 0) {
-        alert(`⚠️ Product "${productData.name}" is out of stock!`);
+      if ((data.stock || 0) <= 0) {
+        alert(`⚠️ ${data.name} is out of stock!`);
         return;
       }
 
       const product = {
         id: productDoc.id,
-        name: productData.name,
-        price: productData.price,
+        name: data.name,
+        price: data.price
       };
 
-      addToCart(product); // add to cart context
-      setManualBarcode(""); // clear input
+      addToCart(product);
+
+      alert(`✅ Added: ${data.name}`);
     } catch (err) {
-      console.error("Error fetching product:", err);
-      if (err.code === 'permission-denied') {
-        alert("Permission denied: You don't have access to products.");
-      } else if (err.code === 'unavailable') {
-        alert("Service unavailable: Please check your internet connection.");
-      } else if (err.code === 'not-found') {
-        alert("Product not found. It may have been deleted.");
-      } else {
-        alert("Error fetching product: " + err.message);
-      }
+      console.error(err);
+      alert("Error fetching product");
     }
   };
 
+  // ⭐ MANUAL INPUT ADD
+  const handleAddManualBarcode = () => {
+    handleBarcodeScan(manualBarcode);
+    setManualBarcode("");
+  };
 
   return (
     <div>
       <h1 className="pos-page-title">POS Terminal</h1>
 
-      {/* Headless scanner logic – renders into #reader inside the frame */}
-      <Scanner active={scannerActive} />
+      {/* ⭐ Scanner now sends barcode to POS */}
+      <Scanner
+        active={scannerActive}
+        onScanSuccess={handleBarcodeScan}
+      />
 
       <div className="pos-layout-row pos-responsive-layout">
-        {/* Left column: scanner + manual barcode */}
+        {/* LEFT COLUMN */}
         <div className="pos-scanner-column">
           <div className="pos-card">
             <div className="pos-card-header">
@@ -80,44 +89,62 @@ export default function POS() {
 
             <div className="pos-mt-md pos-text-right">
               <button
-                className={scannerActive ? "pos-button-secondary" : "pos-button"}
-                onClick={() => setScannerActive((prev) => !prev)}
+                className={
+                  scannerActive
+                    ? "pos-button-secondary"
+                    : "pos-button"
+                }
+                onClick={() =>
+                  setScannerActive((prev) => !prev)
+                }
               >
-                {scannerActive ? "Stop Scanner" : "Start Scanner"}
+                {scannerActive
+                  ? "Stop Scanner"
+                  : "Start Scanner"}
               </button>
             </div>
 
             <div className="pos-mt-md">
-              <div className="pos-label">Manual barcode</div>
+              <div className="pos-label">
+                Manual barcode
+              </div>
               <div className="pos-input-group">
                 <input
                   type="text"
                   placeholder="Type barcode here"
                   value={manualBarcode}
-                  onChange={(e) => setManualBarcode(e.target.value)}
+                  onChange={(e) =>
+                    setManualBarcode(e.target.value)
+                  }
                   className="pos-input"
                 />
-                <button className="pos-button pos-input-button" onClick={handleAddManualBarcode}>
+                <button
+                  className="pos-button pos-input-button"
+                  onClick={handleAddManualBarcode}
+                >
                   Add
                 </button>
               </div>
+
               <div className="pos-muted pos-mt-md">
-                Use either the camera scanner or type the barcode to add items.
+                Use camera scanner or manual input.
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right column: cart summary */}
+        {/* RIGHT COLUMN */}
         <div className="pos-cart-column">
           <div className="pos-card">
             <div className="pos-card-header">
               <span>Cart Overview</span>
-              <span className="pos-chip">{cart.length} items</span>
+              <span className="pos-chip">
+                {cart.length} items
+              </span>
             </div>
 
             <p className="pos-muted">
-              Scan products to build your cart, then proceed to checkout.
+              Scan products to build your cart.
             </p>
 
             <div className="pos-mt-lg pos-text-right">
