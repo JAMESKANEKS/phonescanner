@@ -25,11 +25,7 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      if (err.name === 'NotAllowedError') {
-        alert("Camera access denied. Please allow camera permissions in your browser and refresh the page.");
-      } else {
-        alert("Unable to access cameras. Please check browser permissions and ensure no other app is using the camera.");
-      }
+      alert("Unable to access cameras. Please check browser permissions.");
       return;
     }
 
@@ -99,17 +95,6 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
       .catch((err) => {
         console.error("Scanner start error:", err);
         scannerRef.current = null;
-        
-        // Provide more specific error messages
-        if (err.name === 'NotAllowedError') {
-          alert("Camera access denied. Please allow camera permissions and refresh the page.");
-        } else if (err.name === 'NotFoundError') {
-          alert("No camera found. Please connect a camera and try again.");
-        } else if (err.name === 'NotReadableError') {
-          alert("Camera is already in use by another application. Please close other camera apps and try again.");
-        } else {
-          alert("Failed to start camera scanner: " + err.message);
-        }
       });
   }, [addToCart, onScan, scannerId]);
 
@@ -123,11 +108,6 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
         .catch((err) => {
           console.error("Scanner stop error:", err);
           // Force cleanup even if there's an error
-          try {
-            scannerRef.current.clear();
-          } catch (clearErr) {
-            console.error("Scanner clear error:", clearErr);
-          }
           scannerRef.current = null;
         });
     }
@@ -137,14 +117,14 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      startScanner();
+      setTimeout(() => startScanner(), 0);
     } else {
-      stopScanner();
+      setTimeout(() => stopScanner(), 0);
     }
 
     return () => {
       // Cleanup on unmount
-      stopScanner();
+      setTimeout(() => stopScanner(), 0);
     };
   }, [active, startScanner, stopScanner]);
 
