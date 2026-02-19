@@ -18,6 +18,9 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
     if (scannerRef.current) return; // Prevent multiple scanners
 
     try {
+      // Ensure any existing scanner instances are cleaned up first
+      await Html5Qrcode.getCameras();
+      
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) {
         alert("No camera detected. Please connect a camera and try again.");
@@ -25,8 +28,28 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
       }
     } catch (err) {
       console.error("Error checking cameras:", err);
-      alert("Unable to access cameras. Please check browser permissions.");
-      return;
+      // Try to clear any existing scanner instances
+      try {
+        if (scannerRef.current) {
+          await scannerRef.current.stop();
+          scannerRef.current = null;
+        }
+      } catch (cleanupErr) {
+        console.log("Cleanup attempt:", cleanupErr);
+      }
+      
+      // Retry camera access after cleanup
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          alert("No camera detected. Please connect a camera and try again.");
+          return;
+        }
+      } catch (retryErr) {
+        console.error("Retry failed:", retryErr);
+        alert("Unable to access cameras. Please check browser permissions and refresh the page.");
+        return;
+      }
     }
 
     const scanner = new Html5Qrcode(scannerId);
@@ -108,6 +131,11 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
         .catch((err) => {
           console.error("Scanner stop error:", err);
           // Force cleanup even if there's an error
+          try {
+            scannerRef.current.clear();
+          } catch (clearErr) {
+            console.log("Clear error:", clearErr);
+          }
           scannerRef.current = null;
         });
     }
@@ -117,7 +145,8 @@ export default function Scanner({ active, scannerId = "reader", onScan }) {
   // React to `active` prop to start/stop
   useEffect(() => {
     if (active) {
-      setTimeout(() => startScanner(), 0);
+      // Add a small delay to ensure previous scanner is fully cleaned up
+      setTimeout(() => startScanner(), 300);
     } else {
       setTimeout(() => stopScanner(), 0);
     }
