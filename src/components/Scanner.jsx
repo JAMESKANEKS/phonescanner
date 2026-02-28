@@ -1,7 +1,7 @@
 import { useEffect, useContext, useRef, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { useAuth } from "../context/AuthContext";
-import { getUserProducts } from "../services/dataService";
+import { db } from "../firebase/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { CartContext } from "../context/CartContext";
 
 // Global state to track if any scanner is stopping/stopped (shared across all Scanner instances)
@@ -41,7 +41,6 @@ const stopAllVideoTracks = () => {
 };
 
 export default function Scanner({ active, scannerId = "reader", onScan, onScanSuccess }) {
-  const { currentUser } = useAuth();
   const { addToCart } = useContext(CartContext);
   const scanCooldownRef = useRef(false);
   const scannerRef = useRef(null);
@@ -148,29 +147,13 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       await scanner.start(
         { facingMode: "environment" },
         { 
-          fps: 8, 
-          qrbox: { width: 250, height: 250 },
+          fps: 10, 
+          qrbox: 250,
           aspectRatio: 1.0,
-          disableFlip: false,
-          rememberLastUsedCamera: true,
-          supportedScanTypes: [0, 1] // QR_CODE and BARCODE
+          disableFlip: false
         },
         async (barcode) => {
           if (scanCooldownRef.current) return; // Prevent overlapping scans
-
-          // Validate barcode format
-          if (!barcode || typeof barcode !== 'string') {
-            console.debug("Invalid barcode format:", barcode);
-            return;
-          }
-
-          // Clean barcode data (remove whitespace, special characters)
-          const cleanBarcode = barcode.trim().replace(/[^\w\d]/g, '');
-          
-          if (cleanBarcode.length < 3) {
-            console.debug("Barcode too short:", cleanBarcode);
-            return;
-          }
 
           scanCooldownRef.current = true; // Set cooldown
 
@@ -179,7 +162,7 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
           
           if (scanHandler) {
             try {
-              await scanHandler(cleanBarcode);
+              await scanHandler(barcode);
               // Play beep on successful scan
               if (beep.current) {
                 try {
@@ -196,38 +179,36 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
           } else {
             // Default behavior: add to cart
             try {
-              if (!currentUser) {
-                console.error("No user logged in for scanning");
-                return;
-              }
+              // 🔎 Search product in Firestore
+              const q = query(
+                collection(db, "products"),
+                where("barcode", "==", barcode)
+              );
+              const snapshot = await getDocs(q);
 
-              // 🔎 Search product in user's products
-              const products = await getUserProducts(currentUser.uid);
-              const foundProduct = products.find(product => product.barcode === cleanBarcode);
+              if (!snapshot.empty) {
+                // Use for...of instead of forEach to properly handle async operations
+                for (const docSnapshot of snapshot.docs) {
+                  const productData = docSnapshot.data();
+                  const currentStock = productData.stock || 0;
 
-              if (foundProduct) {
-                const currentStock = foundProduct.stock || 0;
+                  // 🔍 CHECK STOCK AVAILABILITY
+                  if (currentStock <= 0) {
+                    alert(`⚠️ Product "${productData.name}" is out of stock!`);
+                    continue;
+                  }
 
-                // 🔍 CHECK STOCK AVAILABILITY
-                if (currentStock <= 0) {
-                  alert(`⚠️ Product "${foundProduct.name}" is out of stock!`);
-                  return;
+                  addToCartRef.current({ id: docSnapshot.id, ...productData });
+
+                  // ✅ Play beep every time a product is added
+                  try {
+                    beep.current.currentTime = 0; // reset for overlapping
+                    await beep.current.play();
+                  } catch (audioErr) {
+                    // Ignore audio play errors (may fail in some browsers)
+                    console.debug("Beep play error:", audioErr);
+                  }
                 }
-
-                addToCartRef.current(foundProduct);
-
-                // ✅ Play beep every time a product is added
-                try {
-                  beep.current.currentTime = 0; // reset for overlapping
-                  await beep.current.play();
-                } catch (audioErr) {
-                  // Ignore audio play errors (may fail in some browsers)
-                  console.debug("Beep play error:", audioErr);
-                }
-              } else {
-                // Product not found - optionally show feedback
-                console.log(`Product with barcode "${cleanBarcode}" not found`);
-                // You could optionally show a brief message or vibration
               }
             } catch (err) {
               console.error("Scan error:", err);
