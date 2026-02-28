@@ -148,8 +148,8 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
         { facingMode: "environment" },
         { 
           fps: 6, 
-          qrbox: { width: 300, height: 200 },
-          aspectRatio: 1.5,
+          qrbox: { width: 200, height: 150 },
+          aspectRatio: 1.33,
           disableFlip: false,
           rememberLastUsedCamera: true,
           supportedScanTypes: [0, 1], // QR_CODE and BARCODE
