@@ -147,14 +147,10 @@ export default function Scanner({ active, scannerId = "reader", onScan, onScanSu
       await scanner.start(
         { facingMode: "environment" },
         { 
-          fps: 6, 
-          qrbox: { width: 200, height: 150 },
-          aspectRatio: 1.33,
-          disableFlip: false,
-          rememberLastUsedCamera: true,
-          supportedScanTypes: [0, 1], // QR_CODE and BARCODE
-          highlightScanRegion: true,
-          highlightCodeOutline: true
+          fps: 10, 
+          qrbox: 250,
+          aspectRatio: 1.0,
+          disableFlip: false
         },
         async (barcode) => {
           if (scanCooldownRef.current) return; // Prevent overlapping scans

@@ -6,13 +6,27 @@ import ConnectionStatus from '../components/ConnectionStatus';
 
 function ProtectedRoute({ children, requiredPermission }) {
   const { currentUser, userProfile, loading, refreshUserProfile } = useAuth();
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [refreshingProfile, setRefreshingProfile] = useState(false);
   const location = useLocation();
 
   // Check if user has the required permission
   const hasPermission = requiredPermission && userProfile?.permissions 
     ? userProfile.permissions[requiredPermission] === true 
     : true; // Default to true if no permission required
+
+  // Handle profile refresh with loading state
+  const handleRefreshProfile = async () => {
+    if (refreshingProfile) return;
+    
+    try {
+      setRefreshingProfile(true);
+      await refreshUserProfile();
+    } catch (error) {
+      console.error('Error refreshing user profile:', error);
+    } finally {
+      setRefreshingProfile(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -43,7 +57,7 @@ function ProtectedRoute({ children, requiredPermission }) {
   }
 
   if (!currentUser) {
-    return <Navigate to="/login" state={{ from: location }} />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // If permission is denied, show modal instead of redirecting
@@ -129,30 +143,36 @@ function ProtectedRoute({ children, requiredPermission }) {
               </button>
               
               <button
-                onClick={refreshUserProfile}
+                onClick={handleRefreshProfile}
+                disabled={refreshingProfile}
                 style={{
                   padding: '12px 24px',
-                  background: '#31384a',
-                  color: '#aab2c5',
+                  background: refreshingProfile ? '#2a2f3a' : '#31384a',
+                  color: refreshingProfile ? '#6b7280' : '#aab2c5',
                   border: '1px solid #31384a',
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '600',
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  cursor: refreshingProfile ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                  opacity: refreshingProfile ? 0.6 : 1
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.background = '#3d4658';
-                  e.target.style.borderColor = '#4a5568';
+                  if (!refreshingProfile) {
+                    e.target.style.background = '#3d4658';
+                    e.target.style.borderColor = '#4a5568';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.background = '#31384a';
-                  e.target.style.borderColor = '#31384a';
+                  if (!refreshingProfile) {
+                    e.target.style.background = '#31384a';
+                    e.target.style.borderColor = '#31384a';
+                  }
                 }}
               >
-                Refresh
+                {refreshingProfile ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
           </div>
