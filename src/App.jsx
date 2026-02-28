@@ -10,6 +10,9 @@ import { AuthProvider } from "./context/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import Cart from "./pages/Cart";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import UserManagement from "./pages/UserManagement";
+import Permissions from "./pages/Permissions";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { offlineStorage } from "./services/offlineStorage";
 
@@ -22,17 +25,24 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/" element={
             <ProtectedRoute>
               <AppContent />
             </ProtectedRoute>
           }>
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard" element={
+              <ProtectedRoute requiredPermission="dashboard">
+                <Dashboard />
+              </ProtectedRoute>
+            } />
             <Route path="pos" element={<POS />} />
             <Route path="products" element={<ProductList />} />
             <Route path="receipts" element={<ReceiptList />} />
             <Route path="receipt/:id" element={<Receipt />} />
             <Route path="cart" element={<Cart />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="permissions" element={<Permissions />} />
             <Route index element={<AddProduct />} />
           </Route>
         </Routes>

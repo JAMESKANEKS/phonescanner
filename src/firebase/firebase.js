@@ -6,6 +6,9 @@ const firebaseConfig = {
   apiKey: "AIzaSyCxPDYR93pfqePmyE2OEjFhjEVnR2OMN2w",
   authDomain: "phonescanner-ba5ab.firebaseapp.com",
   projectId: "phonescanner-ba5ab",
+  storageBucket: "phonescanner-ba5ab.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef123456789"
 };
 
 const app = initializeApp(firebaseConfig);

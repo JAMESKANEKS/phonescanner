@@ -1,212 +1,208 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../firebase/firebase";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  setDoc,
-  onSnapshot,
-  updateDoc,
-  getDoc,
-} from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
+import { addUserSale, updateUserProduct } from "../services/dataService";
+import { getUserProducts } from "../services/dataService";
+import jsPDF from "jspdf";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const [allCarts, setAllCarts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
+  const { cart, clearCart, loading: cartLoading, increaseQuantity, decreaseQuantity, removeItem } = useCart();
+  const [loading, setLoading] = useState(false);
   const [cash, setCash] = useState(""); // 💵 Cash input
   const [change, setChange] = useState(0); // 💰 Change
 
-  // 🔥 REALTIME LISTENER FOR ALL CARTS
+  // 💰 Calculate change whenever cash changes
   useEffect(() => {
-    const cartsCollection = collection(db, "carts");
+    const cashNum = parseFloat(cash) || 0;
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const calculatedChange = cashNum - total;
+    setChange(calculatedChange);
+  }, [cash, cart]);
 
-    const unsubscribe = onSnapshot(
-      cartsCollection,
-      (snapshot) => {
-        const cartsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setAllCarts(cartsData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error listening to carts:", error);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
-
-  // ➕ INCREASE QUANTITY WITH STOCK VALIDATION
-  const increaseQuantity = async (cartId, productId) => {
-    const cartRef = doc(db, "carts", cartId);
-    const cart = allCarts.find((c) => c.id === cartId);
-
-    if (cart && cart.items) {
-      const currentItem = cart.items.find((item) => item.id === productId);
-      
-      // 🔍 CHECK PRODUCT STOCK
-      const productRef = doc(db, "products", productId);
-      const productSnap = await getDoc(productRef);
-      
-      if (productSnap.exists()) {
-        const productData = productSnap.data();
-        const currentStock = productData.stock || 0;
-        const currentQuantity = currentItem ? currentItem.quantity : 0;
-        
-        if (currentQuantity >= currentStock) {
-          alert("⚠️ Not enough stock available!");
-          return;
-        }
-      }
-
-      const updatedItems = cart.items.map((item) =>
-        item.id === productId
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      );
-
-      await updateDoc(cartRef, { items: updatedItems });
+  // 💵 Handle cash input with validation
+  const handleCashChange = (e) => {
+    const value = e.target.value;
+    // Allow only numbers and decimal point
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setCash(value);
     }
   };
 
-  // ➖ DECREASE QUANTITY
-  const decreaseQuantity = async (cartId, productId) => {
-    const cartRef = doc(db, "carts", cartId);
-    const cart = allCarts.find((c) => c.id === cartId);
-
-    if (cart && cart.items) {
-      const updatedItems = cart.items
-        .map((item) =>
-          item.id === productId
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
-        .filter((item) => item.quantity > 0);
-
-      await updateDoc(cartRef, { items: updatedItems });
-    }
-  };
-
-  // 🗑️ REMOVE PRODUCT COMPLETELY
-  const removeProduct = async (cartId, productId) => {
-    const cartRef = doc(db, "carts", cartId);
-    const cart = allCarts.find((c) => c.id === cartId);
-
-    if (cart && cart.items) {
-      const updatedItems = cart.items.filter(
-        (item) => item.id !== productId
-      );
-
-      await updateDoc(cartRef, { items: updatedItems });
-    }
-  };
-
-  // 🧮 GRAND TOTAL
-  const grandTotal = allCarts.reduce(
-    (total, cart) =>
-      total +
-      (cart.items
-        ? cart.items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          )
-        : 0),
-    0
-  );
-
-  // 💵 CALCULATE CHANGE
-  useEffect(() => {
-    const cashNum = parseFloat(cash);
-    if (!isNaN(cashNum)) {
-      setTimeout(() => setChange(cashNum - grandTotal), 0);
-    } else {
-      setTimeout(() => setChange(0), 0);
-    }
-  }, [cash, grandTotal]);
-
-  // 💰 SELL ALL ITEMS WITH STOCK SUBTRACTION
-  const handleSellCart = async () => {
-    const cashNum = parseFloat(cash);
-    if (!cash || cashNum < grandTotal) {
-      alert("Cash is insufficient!");
+  // �️ PRINT RECEIPT FUNCTION
+  const printReceipt = () => {
+    if (cart.length === 0) {
+      alert("No items to print!");
       return;
     }
 
-    const allItems = [];
-    allCarts.forEach((cart) => {
-      if (cart.items) allItems.push(...cart.items);
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
+    let y = 15;
+
+    // Header - Store Info
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text("PHONE SCANNER POS", centerX, y, { align: "center" });
+    y += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("123 Main Street, City", centerX, y, { align: "center" });
+    y += 5;
+    doc.text("Tel: (123) 456-7890", centerX, y, { align: "center" });
+    y += 5;
+    doc.text("Email: info@phonescanner.com", centerX, y, { align: "center" });
+    y += 10;
+
+    // Separator
+    doc.setLineWidth(0.5);
+    doc.line(15, y, pageWidth - 15, y);
+    y += 8;
+
+    // Receipt Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("QUOTATION", centerX, y, { align: "center" });
+    y += 10;
+
+    // Receipt Details
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 15, y);
+    y += 10;
+
+    // Table Headers
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Item", 15, y);
+    doc.text("Price", 80, y, { align: "right" });
+    doc.text("Qty", 110, y, { align: "center" });
+    doc.text("Total", 140, y, { align: "right" });
+    y += 5;
+    doc.line(15, y, pageWidth - 15, y);
+    y += 5;
+
+    // Table Rows
+    doc.setFont("helvetica", "normal");
+    cart.forEach((item) => {
+      if (y > 250) {
+        doc.addPage();
+        y = 15;
+      }
+      const itemName = item.name.length > 25 ? item.name.substring(0, 22) + "..." : item.name;
+      doc.text(itemName, 15, y);
+      doc.text(`₱${item.price}`, 80, y, { align: "right" });
+      doc.text(item.quantity.toString(), 110, y, { align: "center" });
+      doc.text(`₱${item.price * item.quantity}`, 140, y, { align: "right" });
+      y += 6;
     });
 
-    if (allItems.length === 0) {
+    // Bottom line
+    y += 2;
+    doc.line(15, y, pageWidth - 15, y);
+    y += 6;
+
+    // Total
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    doc.text(`Total: ₱${total.toFixed(2)}`, 140, y, { align: "right" });
+    y += 10;
+
+    // Footer
+    doc.setLineWidth(0.5);
+    doc.line(15, y, pageWidth - 15, y);
+    y += 6;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.text("Thank you for your purchase!", centerX, y, { align: "center" });
+    y += 5;
+    doc.text("Please come again!", centerX, y, { align: "center" });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+
+    doc.save(`Quotation_${new Date().getTime()}.pdf`);
+  };
+
+  // � COMPLETE SALE
+  const completeSale = async () => {
+    if (!currentUser) {
+      alert("Please login to complete sale");
+      return;
+    }
+
+    if (cart.length === 0) {
       alert("Cart is empty!");
       return;
     }
 
-    // 🔍 VALIDATE STOCK FOR ALL ITEMS
-    for (const item of allItems) {
-      const productRef = doc(db, "products", item.id);
-      const productSnap = await getDoc(productRef);
+    const cashNum = parseFloat(cash) || 0;
+    const grandTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    if (cashNum < grandTotal) {
+      alert("Insufficient cash!");
+      return;
+    }
+
+    // 🔍 CHECK STOCK FOR EACH ITEM
+    try {
+      const userProducts = await getUserProducts(currentUser.uid);
       
-      if (productSnap.exists()) {
-        const productData = productSnap.data();
-        const currentStock = productData.stock || 0;
+      for (const item of cart) {
+        // Use productId if available, otherwise fall back to id
+        const productIdentifier = item.productId || item.id;
+        const product = userProducts.find(p => p.id === productIdentifier);
         
+        if (!product) {
+          alert(`Product ${item.name} not found!`);
+          return;
+        }
+        
+        const currentStock = product.stock || 0;
         if (item.quantity > currentStock) {
           alert(`⚠️ Not enough stock for ${item.name}! Available: ${currentStock}, Required: ${item.quantity}`);
           return;
         }
       }
-    }
 
-    const saleData = {
-      items: allItems,
-      total: grandTotal,
-      cash: cashNum,      // 💵 Save cash received
-      change: change,     // 💰 Save change
-      date: serverTimestamp(),
-    };
+      setLoading(true);
 
-    try {
-      const docRef = await addDoc(collection(db, "sales"), saleData);
+      // ✅ SAVE SALE TO USER-SPECIFIC COLLECTION
+      const saleId = await addUserSale(currentUser.uid, {
+        items: cart,
+        total: grandTotal,
+        cash: cashNum,
+        change: cashNum - grandTotal,
+      });
 
-      // 📦 SUBTRACT STOCK FOR EACH SOLD ITEM
-      for (const item of allItems) {
-        const productRef = doc(db, "products", item.id);
-        const productSnap = await getDoc(productRef);
+      // 📦 UPDATE STOCK FOR EACH SOLD ITEM
+      for (const item of cart) {
+        const productIdentifier = item.productId || item.id;
+        const product = userProducts.find(p => p.id === productIdentifier);
         
-        if (productSnap.exists()) {
-          const productData = productSnap.data();
-          const currentStock = productData.stock || 0;
+        if (product) {
+          const currentStock = product.stock || 0;
           const newStock = currentStock - item.quantity;
           
-          await updateDoc(productRef, { stock: newStock });
+          await updateUserProduct(currentUser.uid, productIdentifier, { stock: newStock });
         }
       }
 
-      // 🧹 CLEAR ALL CARTS
-      for (const cart of allCarts) {
-        await setDoc(doc(db, "carts", cart.id), { items: [] });
-      }
+      // 🧹 CLEAR USER CART
+      await clearCart();
 
-      alert(`Sale completed! Change: ₱${change.toFixed(2)}`);
-      navigate(`/receipt/${docRef.id}`);
+      alert(`Sale completed! Change: ₱${(cashNum - grandTotal).toFixed(2)}`);
+      navigate(`/receipt/${saleId}`);
     } catch (err) {
       console.error("Error completing sale:", err);
-      if (err.code === 'permission-denied') {
-        alert("Permission denied: You don't have access to complete sales.");
-      } else if (err.code === 'unavailable') {
-        alert("Service unavailable: Please check your internet connection.");
-      } else if (err.code === 'resource-exhausts') {
-        alert("Quota exceeded: Please try again later.");
-      } else {
-        alert("Error completing sale: " + err.message);
-      }
+      alert("Error completing sale");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -214,8 +210,8 @@ export default function Cart() {
     <div>
       <h1 className="pos-page-title">Checkout</h1>
 
-      {loading ? (
-        <p className="pos-muted">Loading carts...</p>
+      {cartLoading ? (
+        <p className="pos-muted">Loading cart...</p>
       ) : (
         <div className="pos-layout-row">
           {/* Items list */}
@@ -223,82 +219,72 @@ export default function Cart() {
             <div className="pos-card">
               <div className="pos-card-header">
                 <span>Cart items</span>
+                <span className="pos-chip">{cart.length} items</span>
               </div>
 
-              {allCarts.every((c) => !c.items || c.items.length === 0) ? (
-                <p className="pos-muted">No items in any cart.</p>
+              {cart.length === 0 ? (
+                <p className="pos-muted">No items in cart.</p>
               ) : (
-                allCarts.map((cartData) =>
-                  cartData.items && cartData.items.length > 0
-                    ? cartData.items.map((item, index) => (
-                        <div
-                          key={`${cartData.id}-${index}`}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "8px 0",
-                            borderBottom:
-                              "1px solid rgba(56, 64, 90, 0.7)",
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 600 }}>
-                              {item.name}
-                            </div>
-                            <div className="pos-muted">
-                              ₱{item.price} each
-                            </div>
-                          </div>
+                cart.map((item, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: "1px solid rgba(56, 64, 90, 0.7)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600 }}>
+                        {item.name}
+                      </div>
+                      <div className="pos-muted">
+                        ₱{item.price} each
+                      </div>
+                    </div>
 
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                            }}
-                          >
-                            <div className="pos-chip">
-                              ₱{item.price * item.quantity}
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <button
-                                className="pos-button-secondary"
-                                onClick={() =>
-                                  decreaseQuantity(cartData.id, item.id)
-                                }
-                              >
-                                −
-                              </button>
-                              <span>{item.quantity}</span>
-                              <button
-                                className="pos-button-secondary"
-                                onClick={() =>
-                                  increaseQuantity(cartData.id, item.id)
-                                }
-                              >
-                                +
-                              </button>
-                              <button
-                                className="pos-button-danger"
-                                onClick={() =>
-                                  removeProduct(cartData.id, item.id)
-                                }
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    : null
-                )
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <div className="pos-chip">
+                        ₱{item.price * item.quantity}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <button
+                          className="pos-button-secondary"
+                          onClick={() => decreaseQuantity(item.id)}
+                        >
+                          −
+                        </button>
+                        <span>{item.quantity}</span>
+                        <button
+                          className="pos-button-secondary"
+                          onClick={() => increaseQuantity(item.id)}
+                        >
+                          +
+                        </button>
+                        <button
+                          className="pos-button-danger"
+                          onClick={() => removeItem(item.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -311,16 +297,18 @@ export default function Cart() {
               </div>
 
               <div className="pos-total-row">
-                Grand Total: ₱{grandTotal.toFixed(2)}
+                Grand Total: ₱{cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
               </div>
 
               <div className="pos-mt-md">
                 <div className="pos-label">Cash received</div>
                 <input
-                  type="number"
+                  type="text"
                   value={cash}
-                  onChange={(e) => setCash(e.target.value)}
+                  onChange={handleCashChange}
                   className="pos-input"
+                  placeholder="0.00"
+                  inputMode="decimal"
                 />
                 <div className="pos-mt-md pos-text-right">
                   <span className="pos-muted">
@@ -329,12 +317,21 @@ export default function Cart() {
                 </div>
               </div>
 
-              <div className="pos-mt-lg pos-text-right">
+              <div className="pos-mt-md pos-text-right">
+                <button
+                  className="pos-button-secondary"
+                  onClick={printReceipt}
+                  disabled={cart.length === 0}
+                  style={{ marginRight: '10px' }}
+                >
+                  Print Quote
+                </button>
                 <button
                   className="pos-button-danger"
-                  onClick={handleSellCart}
+                  onClick={completeSale}
+                  disabled={loading || cart.length === 0 || !cash || parseFloat(cash) < cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)}
                 >
-                  Complete Sale
+                  {loading ? 'Processing...' : 'Complete Sale'}
                 </button>
               </div>
             </div>

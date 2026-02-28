@@ -7,6 +7,7 @@ import {
   signOut,
   onAuthStateChanged 
 } from 'firebase/auth';
+import { createUserProfile, getUserProfile } from '../services/userService';
 
 const AuthContext = createContext();
 
@@ -16,14 +17,45 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Function to refresh user profile
+  const refreshUserProfile = async () => {
+    if (currentUser) {
+      try {
+        const profile = await getUserProfile(currentUser.uid);
+        setUserProfile(profile);
+      } catch (error) {
+        console.error('Error refreshing user profile:', error);
+      }
+    }
+  };
 
   function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password);
   }
 
-  function signup(email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+  async function signup(email, password, additionalData = {}) {
+    console.log('AuthContext: Creating user with email:', email);
+    
+    try {
+      // Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('AuthContext: User created successfully in Auth:', userCredential.user);
+      
+      // Create user profile in Firestore
+      const userProfileData = await createUserProfile(userCredential.user, additionalData);
+      console.log('AuthContext: User profile created in Firestore:', userProfileData);
+      
+      // Set user profile in state
+      setUserProfile(userProfileData);
+      
+      return userCredential;
+    } catch (error) {
+      console.error('AuthContext: Error creating user:', error);
+      throw error;
+    }
   }
 
   function logout() {
@@ -31,8 +63,21 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      
+      if (user) {
+        // Load user profile from Firestore
+        try {
+          const profile = await getUserProfile(user.uid);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      } else {
+        setUserProfile(null);
+      }
+      
       setLoading(false);
     });
 
@@ -41,9 +86,11 @@ export function AuthProvider({ children }) {
 
   const value = {
     currentUser,
+    userProfile,
     login,
     signup,
     logout,
+    refreshUserProfile,
     loading
   };
 

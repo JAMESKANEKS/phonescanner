@@ -1,58 +1,48 @@
 import { useContext, useState, useCallback } from "react";
 import Scanner from "../components/Scanner";
 import { CartContext } from "../context/CartContext";
-import { db } from "../firebase/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs
-} from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
+import { getUserProducts } from "../services/dataService";
 import { useNavigate } from "react-router-dom";
 
 export default function POS() {
   const { cart, addToCart } = useContext(CartContext);
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [manualBarcode, setManualBarcode] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
 
   // ⭐ FUNCTION: ADD PRODUCT BY BARCODE (scanner or manual) — stable ref so scanner doesn't restart
   const handleBarcodeScan = useCallback(async (barcode) => {
-    if (!barcode) return;
+    if (!barcode || !currentUser) return;
 
     try {
-      const q = query(
-        collection(db, "products"),
-        where("barcode", "==", barcode)
-      );
+      // Get user-specific products
+      const products = await getUserProducts(currentUser.uid);
+      
+      // Find product by barcode
+      const product = products.find(p => p.barcode === barcode);
 
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
+      if (!product) {
         alert("❌ Product not found!");
         return;
       }
 
-      const productDoc = snapshot.docs[0];
-      const data = productDoc.data();
-
-      if ((data.stock || 0) <= 0) {
-        alert(`⚠️ ${data.name} is out of stock!`);
+      if ((product.stock || 0) <= 0) {
+        alert(`⚠️ ${product.name} is out of stock!`);
         return;
       }
 
-      const product = {
-        id: productDoc.id,
-        name: data.name,
-        price: data.price
-      };
-
-      addToCart(product);
+      addToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price
+      });
     } catch (err) {
       console.error(err);
       alert("Error fetching product");
     }
-  }, [addToCart]);
+  }, [addToCart, currentUser]);
 
   // ⭐ MANUAL INPUT ADD
   const handleAddManualBarcode = () => {

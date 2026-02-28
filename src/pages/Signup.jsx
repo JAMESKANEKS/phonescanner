@@ -1,18 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { testFirebaseAuth, testCurrentAuthState } from '../utils/firebaseTest';
 
-export default function Login() {
+export default function Signup() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [testResult, setTestResult] = useState('');
+  const { signup } = useAuth();
   const navigate = useNavigate();
-  const emailRef = useRef();
+  const nameRef = useRef();
+
+  const testFirebase = async () => {
+    setTestResult('Testing Firebase connection...');
+    
+    // First check current auth state
+    const currentAuth = testCurrentAuthState();
+    console.log('Current auth state:', currentAuth);
+    
+    // Then run comprehensive test
+    const result = await testFirebaseAuth();
+    setTestResult(JSON.stringify(result, null, 2));
+  };
 
   useEffect(() => {
-    emailRef.current.focus();
+    nameRef.current.focus();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -20,12 +36,55 @@ export default function Login() {
     setError('');
     setLoading(true);
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
+    if (name.trim().length < 2) {
+      setError('Name must be at least 2 characters long');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await login(email, password);
+      console.log('Attempting to create user with email:', email);
+      const userCredential = await signup(email, password, {
+        displayName: name.trim(),
+        name: name.trim()
+      });
+      console.log('User created successfully:', userCredential.user);
+      console.log('User UID:', userCredential.user.uid);
+      console.log('User email:', userCredential.user.email);
       navigate('/dashboard');
     } catch (err) {
-      setError('Failed to sign in. Please check your credentials.');
-      console.error(err);
+      console.error('Signup error:', err);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to create account. Please try again.';
+      
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please use a different email or sign in.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address. Please check and try again.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please choose a stronger password.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -85,10 +144,10 @@ export default function Login() {
             marginTop: '20px',
             marginBottom: '8px'
           }}>
-            Login
+            Sign Up
           </div>
           <div style={{ fontSize: '12px', color: '#8188a0' }}>
-            Access your POS system
+            Create your account
           </div>
         </div>
 
@@ -118,16 +177,80 @@ export default function Login() {
               textTransform: 'uppercase',
               letterSpacing: '0.08em'
             }}>
+              Full Name
+            </label>
+            <input
+              ref={nameRef}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="pos-input"
+              placeholder="John Doe"
+              style={{
+                width: '100%',
+                borderRadius: '8px',
+                border: '1px solid #31384a',
+                background: '#090b11',
+                color: '#f6f8ff',
+                padding: '12px 14px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              fontSize: '13px',
+              color: '#aab2c5',
+              marginBottom: '8px',
+              display: 'block',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em'
+            }}>
               Email Address
             </label>
             <input
-              ref={emailRef}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="pos-input"
-              placeholder="admin@pos.com"
+              placeholder="your@email.com"
+              style={{
+                width: '100%',
+                borderRadius: '8px',
+                border: '1px solid #31384a',
+                background: '#090b11',
+                color: '#f6f8ff',
+                padding: '12px 14px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              fontSize: '13px',
+              color: '#aab2c5',
+              marginBottom: '8px',
+              display: 'block',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em'
+            }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="pos-input"
+              placeholder="••••••••"
               style={{
                 width: '100%',
                 borderRadius: '8px',
@@ -151,12 +274,12 @@ export default function Login() {
               textTransform: 'uppercase',
               letterSpacing: '0.08em'
             }}>
-              Password
+              Confirm Password
             </label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               required
               className="pos-input"
               placeholder="••••••••"
@@ -209,10 +332,10 @@ export default function Login() {
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite'
                 }} />
-                Signing In...
+                Creating Account...
               </>
             ) : (
-              'Sign In'
+              'Create Account'
             )}
           </button>
 
@@ -223,18 +346,52 @@ export default function Login() {
             borderTop: '1px solid rgba(255,255,255,0.06)'
           }}>
             <div style={{ fontSize: '13px', color: '#8188a0' }}>
-              Don't have an account?{' '}
+              Already have an account?{' '}
               <Link 
-                to="/signup" 
+                to="/login" 
                 style={{
                   color: '#36c2ff',
                   textDecoration: 'none',
                   fontWeight: '600'
                 }}
               >
-                Sign Up
+                Sign In
               </Link>
             </div>
+            
+            <button
+              type="button"
+              onClick={testFirebase}
+              style={{
+                marginTop: '16px',
+                padding: '8px 16px',
+                fontSize: '11px',
+                background: '#31384a',
+                color: '#8188a0',
+                border: '1px solid #31384a',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              Test Firebase Connection
+            </button>
+            
+            {testResult && (
+              <div style={{
+                marginTop: '12px',
+                padding: '8px',
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: '6px',
+                fontSize: '11px',
+                color: '#aab2c5',
+                textAlign: 'left',
+                whiteSpace: 'pre-wrap',
+                maxHeight: '150px',
+                overflow: 'auto'
+              }}>
+                {testResult}
+              </div>
+            )}
           </div>
         </form>
       </div>

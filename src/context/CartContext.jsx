@@ -1,120 +1,127 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useState, useEffect } from "react";
-import { db } from "../firebase/firebase";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { createContext, useState, useEffect, useContext } from "react";
+import { useAuth } from "./AuthContext";
+import { getUserCart, addUserCartItem, updateUserCartItem, deleteUserCartItem, clearUserCart } from "../services/dataService";
 
 export const CartContext = createContext();
 
+export function useCart() {
+  return useContext(CartContext);
+}
+
 export function CartProvider({ children }) {
+  const { currentUser } = useAuth();
   const [cart, setCart] = useState([]);
-  const [deviceId, setDeviceId] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // Generate or get device ID for cart identification
+  // Load user cart from database
   useEffect(() => {
-    let storedDeviceId = localStorage.getItem("deviceId");
-    if (!storedDeviceId) {
-      storedDeviceId = "device_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem("deviceId", storedDeviceId);
-    }
-    setTimeout(() => setDeviceId(storedDeviceId), 0);
-  }, []);
-
-  // Load cart from database on component mount
-  useEffect(() => {
-    if (!deviceId) return;
-
-    const cartRef = doc(db, "carts", deviceId);
-    
-    const unsubscribe = onSnapshot(cartRef, (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        const cartData = docSnapshot.data().items || [];
-        setCart(cartData);
-      } else {
-        setCart([]);
-      }
-    }, (error) => {
-      console.error("Error loading cart:", error);
+    if (!currentUser) {
       setCart([]);
-    });
-
-    return () => unsubscribe();
-  }, [deviceId]);
-
-  // Save cart to database whenever it changes
-  const saveCartToDatabase = async (updatedCart) => {
-    if (!deviceId) return;
-    
-    try {
-      const cartRef = doc(db, "carts", deviceId);
-      await setDoc(cartRef, {
-        items: updatedCart,
-        lastUpdated: new Date().toISOString(),
-        deviceId: deviceId
-      });
-    } catch (error) {
-      console.error("Error saving cart to database:", error);
+      setLoading(false);
+      return;
     }
-  };
+
+    const loadUserCart = async () => {
+      try {
+        setLoading(true);
+        const cartItems = await getUserCart(currentUser.uid);
+        setCart(cartItems);
+      } catch (error) {
+        console.error("Error loading user cart:", error);
+        setCart([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserCart();
+  }, [currentUser]);
 
   // ➕ Add product or increase quantity
-  const addToCart = (product) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-
-      let updatedCart;
+  const addToCart = async (product) => {
+    if (!currentUser) return;
+    
+    try {
+      // Check if product already exists in cart by matching product.id (original product ID)
+      const existing = cart.find((item) => item.productId === product.id);
+      
       if (existing) {
-        updatedCart = prev.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+        // Update existing item
+        const updatedItem = { ...existing, quantity: existing.quantity + 1 };
+        await updateUserCartItem(currentUser.uid, existing.id, updatedItem);
+        setCart(prev => prev.map(item => 
+          item.productId === product.id ? updatedItem : item
+        ));
       } else {
-        updatedCart = [...prev, { ...product, quantity: 1 }];
+        // Add new item with both original product ID and cart item ID
+        const cartItemData = { 
+          ...product, 
+          quantity: 1,
+          productId: product.id // Store original product ID for reference
+        };
+        const cartItemId = await addUserCartItem(currentUser.uid, cartItemData);
+        setCart(prev => [...prev, { ...cartItemData, id: cartItemId }]);
       }
-
-      // Save to database
-      saveCartToDatabase(updatedCart);
-      return updatedCart;
-    });
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
   };
 
   // ➖ Decrease quantity
-  const decreaseQuantity = (id) => {
-    setCart((prev) => {
-      const updatedCart = prev
-        .map((item) =>
-          item.id === id
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
-        .filter((item) => item.quantity > 0); // remove if 0
-
-      // Save to database
-      saveCartToDatabase(updatedCart);
-      return updatedCart;
-    });
+  const decreaseQuantity = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      const item = cart.find(item => item.id === id);
+      if (!item) return;
+      
+      if (item.quantity > 1) {
+        // Update quantity
+        const updatedItem = { ...item, quantity: item.quantity - 1 };
+        await updateUserCartItem(currentUser.uid, id, updatedItem);
+        setCart(prev => prev.map(item => 
+          item.id === id ? updatedItem : item
+        ));
+      } else {
+        // Remove item
+        await deleteUserCartItem(currentUser.uid, id);
+        setCart(prev => prev.filter(item => item.id !== id));
+      }
+    } catch (error) {
+      console.error('Error decreasing quantity:', error);
+    }
   };
 
   // ❌ Remove item completely
-  const removeItem = (id) => {
-    setCart((prev) => {
-      const updatedCart = prev.filter((item) => item.id !== id);
-      
-      // Save to database
-      saveCartToDatabase(updatedCart);
-      return updatedCart;
-    });
+  const removeItem = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      await deleteUserCartItem(currentUser.uid, id);
+      setCart(prev => prev.filter((item) => item.id !== id));
+    } catch (error) {
+      console.error('Error removing item:', error);
+      // Optionally show user feedback
+    }
   };
 
   // Clear cart completely
-  const clearCart = () => {
-    setCart([]);
-    saveCartToDatabase([]);
+  const clearCart = async () => {
+    if (!currentUser) return;
+    
+    try {
+      await clearUserCart(currentUser.uid);
+      setCart([]);
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+      // Optionally show user feedback
+    }
   };
 
   return (
     <CartContext.Provider
-      value={{ cart, setCart, addToCart, decreaseQuantity, removeItem, clearCart }}
+      value={{ cart, setCart, addToCart, decreaseQuantity, removeItem, clearCart, loading }}
     >
       {children}
     </CartContext.Provider>

@@ -1,16 +1,11 @@
 import { useState, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
 import JsBarcode from "jsbarcode";
 import Scanner from "../components/Scanner";
-import { db } from "../firebase/firebase";
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { addUserProduct } from "../services/dataService";
 
 export default function AddProduct() {
+  const { currentUser } = useAuth();
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
@@ -47,27 +42,19 @@ export default function AddProduct() {
 
   // 💾 SAVE PRODUCT (PREVENT DUPLICATE BARCODE)
   const saveProduct = async () => {
+    if (!currentUser) {
+      alert("Please login to add products");
+      return;
+    }
+    
     if (!name || !price || !barcode || stock === "") {
       alert("Fill all fields!");
       return;
     }
 
     try {
-      // 🔎 CHECK IF BARCODE EXISTS
-      const q = query(
-        collection(db, "products"),
-        where("barcode", "==", barcode)
-      );
-
-      const snapshot = await getDocs(q);
-
-      if (!snapshot.empty) {
-        alert("⚠️ Barcode already exists!");
-        return;
-      }
-
-      // ✅ SAVE IF UNIQUE
-      await addDoc(collection(db, "products"), {
+      // ✅ SAVE TO USER-SPECIFIC COLLECTION
+      await addUserProduct(currentUser.uid, {
         name,
         price: Number(price),
         stock: Number(stock),
@@ -82,15 +69,7 @@ export default function AddProduct() {
       setBarcode("");
     } catch (error) {
       console.error("Error saving product:", error);
-      if (error.code === 'permission-denied') {
-        alert("Permission denied: You don't have access to add products.");
-      } else if (error.code === 'unavailable') {
-        alert("Service unavailable: Please check your internet connection.");
-      } else if (error.code === 'resource-exhausts') {
-        alert("Quota exceeded: Please try again later.");
-      } else {
-        alert("Error saving product: " + error.message);
-      }
+      alert("Error saving product");
     }
   };
 

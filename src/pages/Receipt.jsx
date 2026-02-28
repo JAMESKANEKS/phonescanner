@@ -1,163 +1,215 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
+import { getUserSale } from "../services/dataService";
 import { useParams, Link } from "react-router-dom";
 import jsPDF from "jspdf";
 
 export default function Receipt() {
   const [sale, setSale] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const { id } = useParams();
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     const fetchSale = async () => {
-      try {
-        const docRef = doc(db, "sales", id);
-        const docSnap = await getDoc(docRef);
+      if (!currentUser || !id) {
+        setLoading(false);
+        return;
+      }
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+      try {
+        setLoading(true);
+        setError('');
+        
+        const saleData = await getUserSale(currentUser.uid, id);
+        
+        if (saleData) {
+          // Handle date formatting
+          let formattedDate = new Date();
+          if (saleData.date) {
+            if (saleData.date instanceof Date) {
+              formattedDate = saleData.date;
+            } else if (saleData.date.seconds) {
+              formattedDate = new Date(saleData.date.seconds * 1000);
+            } else {
+              formattedDate = new Date(saleData.date);
+            }
+          }
+          
           setSale({
-            id: docSnap.id,
-            ...data,
-            date: data.date ? data.date.toDate() : new Date(),
+            ...saleData,
+            date: formattedDate,
           });
         } else {
-          console.log("No such document!");
+          setError("Receipt not found");
         }
       } catch (err) {
         console.error("Error fetching receipt:", err);
         if (err.code === 'permission-denied') {
-          alert("Permission denied: You don't have access to this receipt.");
+          setError("Permission denied: You don't have access to this receipt.");
         } else if (err.code === 'unavailable') {
-          alert("Service unavailable: Please check your internet connection.");
+          setError("Service unavailable: Please check your internet connection.");
         } else if (err.code === 'not-found') {
-          alert("Receipt not found: This receipt may have been deleted or doesn't exist.");
+          setError("Receipt not found: This receipt may have been deleted or doesn't exist.");
         } else {
-          alert("Error loading receipt: " + err.message);
+          setError("Error loading receipt: " + err.message);
         }
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) fetchSale();
-    else setLoading(false);
-  }, [id]);
+    fetchSale();
+  }, [currentUser, id]);
 
   // 🔹 PRINT RECEIPT AS PDF
   const handlePrint = (sale) => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const centerX = pageWidth / 2;
-    let y = 15;
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const centerX = pageWidth / 2;
+      let y = 15;
 
-    // Header - Store Info
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("PHONE SCANNER POS", centerX, y, { align: "center" });
-    y += 8;
+      // Header - Store Info
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("PHONE SCANNER POS", centerX, y, { align: "center" });
+      y += 8;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text("123 Main Street, City", centerX, y, { align: "center" });
-    y += 5;
-    doc.text("Tel: (123) 456-7890", centerX, y, { align: "center" });
-    y += 5;
-    doc.text("Email: info@phonescanner.com", centerX, y, { align: "center" });
-    y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text("123 Main Street, City", centerX, y, { align: "center" });
+      y += 5;
+      doc.text("Tel: (123) 456-7890", centerX, y, { align: "center" });
+      y += 5;
+      doc.text("Email: info@phonescanner.com", centerX, y, { align: "center" });
+      y += 10;
 
-    // Separator
-    doc.setLineWidth(0.5);
-    doc.line(15, y, pageWidth - 15, y);
-    y += 8;
+      // Separator
+      doc.setLineWidth(0.5);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 8;
 
-    // Receipt Title
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("SALE RECEIPT", centerX, y, { align: "center" });
-    y += 10;
+      // Receipt Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("SALE RECEIPT", centerX, y, { align: "center" });
+      y += 10;
 
-    // Receipt Details
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Receipt #: ${sale.id}`, 15, y);
-    y += 6;
-    doc.text(`Date: ${sale.date.toLocaleDateString()} ${sale.date.toLocaleTimeString()}`, 15, y);
-    y += 10;
+      // Receipt Details
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Receipt #: ${sale.id}`, 15, y);
+      y += 6;
+      doc.text(`Date: ${sale.date.toLocaleDateString()} ${sale.date.toLocaleTimeString()}`, 15, y);
+      y += 10;
 
-    // Table Headers
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Item", 15, y);
-    doc.text("Price", 80, y, { align: "right" });
-    doc.text("Qty", 110, y, { align: "center" });
-    doc.text("Total", 140, y, { align: "right" });
-    y += 5;
-    doc.line(15, y, pageWidth - 15, y);
-    y += 5;
+      // Table Headers
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("Item", 15, y);
+      doc.text("Price", 80, y, { align: "right" });
+      doc.text("Qty", 110, y, { align: "center" });
+      doc.text("Total", 140, y, { align: "right" });
+      y += 5;
+      doc.line(15, y, pageWidth - 15, y);
+      y += 5;
 
-    // Table Rows
-    doc.setFont("helvetica", "normal");
-    if (sale.items && sale.items.length > 0) {
-      sale.items.forEach((item) => {
-        if (y > 250) {
-          doc.addPage();
-          y = 15;
-        }
-        const itemName = item.name.length > 25 ? item.name.substring(0, 22) + "..." : item.name;
-        doc.text(itemName, 15, y);
-        doc.text(`P${Math.round(item.price)}`, 80, y, { align: "right" });
-        doc.text(item.quantity.toString(), 110, y, { align: "center" });
-        doc.text(`P${Math.round(item.price * item.quantity)}`, 140, y, { align: "right" });
-        y += 6;
-      });
+      // Table Rows
+      doc.setFont("helvetica", "normal");
+      if (sale.items && Array.isArray(sale.items) && sale.items.length > 0) {
+        sale.items.forEach((item) => {
+          if (y > 250) {
+            doc.addPage();
+            y = 15;
+          }
+          const itemName = item.name && item.name.length > 25 ? item.name.substring(0, 22) + "..." : (item.name || 'Unknown Item');
+          const price = typeof item.price === 'number' ? item.price : 0;
+          const quantity = typeof item.quantity === 'number' ? item.quantity : 1;
+          
+          doc.text(itemName, 15, y);
+          doc.text(`₱${price.toFixed(2)}`, 80, y, { align: "right" });
+          doc.text(quantity.toString(), 110, y, { align: "center" });
+          doc.text(`₱${(price * quantity).toFixed(2)}`, 140, y, { align: "right" });
+          y += 6;
+        });
+      }
+
+      // Bottom line
+      y += 2;
+      doc.line(15, y, pageWidth - 15, y);
+      y += 6;
+
+      // Total, Cash, Change
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      const total = typeof sale.total === 'number' ? sale.total : 0;
+      doc.text(`Total: ₱${total.toFixed(2)}`, 140, y, { align: "right" });
+      y += 6;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const cash = typeof sale.cash === 'number' ? sale.cash : total;
+      const change = typeof sale.change === 'number' ? sale.change : 0;
+      doc.text(`Cash Received: ₱${cash.toFixed(2)}`, 140, y, { align: "right" });
+      y += 6;
+      doc.text(`Change: ₱${change.toFixed(2)}`, 140, y, { align: "right" });
+      y += 10;
+
+      // Footer
+      doc.setLineWidth(0.5);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 6;
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(10);
+      doc.text("Thank you for your purchase!", centerX, y, { align: "center" });
+      y += 5;
+      doc.text("Please come again!", centerX, y, { align: "center" });
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+
+      doc.save(`Receipt_${sale.id}_${new Date().getTime()}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
     }
-
-    // Bottom line
-    y += 2;
-    doc.line(15, y, pageWidth - 15, y);
-    y += 6;
-
-    // Total, Cash, Change
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(`Total: P${Math.round(sale.total)}`, 140, y, { align: "right" });
-    y += 6;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    const cash = sale.cash ?? sale.total; // fallback if not saved
-    const change = sale.change ?? 0;
-    doc.text(`Cash Received: P${Math.round(cash)}`, 140, y, { align: "right" });
-    y += 6;
-    doc.text(`Change: P${Math.round(change)}`, 140, y, { align: "right" });
-    y += 10;
-
-    // Footer
-    doc.setLineWidth(0.5);
-    doc.line(15, y, pageWidth - 15, y);
-    y += 6;
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(10);
-    doc.text("Thank you for your purchase!", centerX, y, { align: "center" });
-    y += 5;
-    doc.text("Please come again!", centerX, y, { align: "center" });
-    y += 5;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-
-    doc.save(`Receipt_${sale.id}_${new Date().getTime()}.pdf`);
   };
 
-  if (loading) return <p className="pos-muted">Loading receipt...</p>;
+  if (loading) {
+    return (
+      <div style={{ 
+        padding: '40px', 
+        textAlign: 'center', 
+        color: '#aab2c5' 
+      }}>
+        Loading receipt...
+      </div>
+    );
+  }
 
-  if (!sale)
+  if (error || !sale) {
     return (
       <div>
         <h1 className="pos-page-title">Receipt</h1>
         <div className="pos-card">
-          <p className="pos-muted">Receipt not found.</p>
+          {error ? (
+            <div style={{
+              background: 'rgba(255, 77, 106, 0.1)',
+              border: '1px solid rgba(255, 77, 106, 0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              color: '#ff6b8a',
+              fontSize: '13px',
+              textAlign: 'center',
+              marginBottom: '16px'
+            }}>
+              {error}
+            </div>
+          ) : (
+            <p className="pos-muted">Receipt not found.</p>
+          )}
           <Link to="/receipts">
             <button className="pos-button-secondary">
               Back to All Receipts
@@ -166,6 +218,7 @@ export default function Receipt() {
         </div>
       </div>
     );
+  }
 
   return (
     <div>
