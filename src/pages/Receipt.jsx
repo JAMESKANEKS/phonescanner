@@ -9,7 +9,7 @@ export default function Receipt() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const { id } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
 
   useEffect(() => {
     const fetchSale = async () => {
@@ -71,21 +71,6 @@ export default function Receipt() {
       const centerX = pageWidth / 2;
       let y = 15;
 
-      // Header - Store Info
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(20);
-      doc.text("PHONE SCANNER POS", centerX, y, { align: "center" });
-      y += 8;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text("123 Main Street, City", centerX, y, { align: "center" });
-      y += 5;
-      doc.text("Tel: (123) 456-7890", centerX, y, { align: "center" });
-      y += 5;
-      doc.text("Email: info@phonescanner.com", centerX, y, { align: "center" });
-      y += 10;
-
       // Separator
       doc.setLineWidth(0.5);
       doc.line(15, y, pageWidth - 15, y);
@@ -129,9 +114,9 @@ export default function Receipt() {
           const quantity = typeof item.quantity === 'number' ? item.quantity : 1;
           
           doc.text(itemName, 15, y);
-          doc.text(`₱${price.toFixed(2)}`, 80, y, { align: "right" });
+          doc.text(`P${price.toFixed(2)}`, 80, y, { align: "right" });
           doc.text(quantity.toString(), 110, y, { align: "center" });
-          doc.text(`₱${(price * quantity).toFixed(2)}`, 140, y, { align: "right" });
+          doc.text(`P${(price * quantity).toFixed(2)}`, 140, y, { align: "right" });
           y += 6;
         });
       }
@@ -145,16 +130,16 @@ export default function Receipt() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       const total = typeof sale.total === 'number' ? sale.total : 0;
-      doc.text(`Total: ₱${total.toFixed(2)}`, 140, y, { align: "right" });
+      doc.text(`Total: P${total.toFixed(2)}`, 140, y, { align: "right" });
       y += 6;
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       const cash = typeof sale.cash === 'number' ? sale.cash : total;
       const change = typeof sale.change === 'number' ? sale.change : 0;
-      doc.text(`Cash Received: ₱${cash.toFixed(2)}`, 140, y, { align: "right" });
+      doc.text(`Cash Received: P${cash.toFixed(2)}`, 140, y, { align: "right" });
       y += 6;
-      doc.text(`Change: ₱${change.toFixed(2)}`, 140, y, { align: "right" });
+      doc.text(`Change: P${change.toFixed(2)}`, 140, y, { align: "right" });
       y += 10;
 
       // Footer
@@ -285,7 +270,13 @@ export default function Receipt() {
           gap: 12,
         }}
       >
-        <button className="pos-button" onClick={() => handlePrint(sale)}>
+        <button 
+          className="pos-button" 
+          onClick={() => handlePrint(sale)}
+          style={{
+            display: userProfile?.permissions?.print !== false ? 'inline-block' : 'none'
+          }}
+        >
           🖨️ Print Receipt
         </button>
         <Link to="/receipts">

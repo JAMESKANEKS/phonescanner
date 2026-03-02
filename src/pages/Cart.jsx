@@ -8,7 +8,7 @@ import jsPDF from "jspdf";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { cart, clearCart, loading: cartLoading, increaseQuantity, decreaseQuantity, removeItem } = useCart();
   const [loading, setLoading] = useState(false);
   const [cash, setCash] = useState(""); // 💵 Cash input
@@ -95,9 +95,9 @@ export default function Cart() {
       }
       const itemName = item.name.length > 25 ? item.name.substring(0, 22) + "..." : item.name;
       doc.text(itemName, 15, y);
-      doc.text(`₱${item.price}`, 80, y, { align: "right" });
+      doc.text(`P${item.price}`, 80, y, { align: "right" });
       doc.text(item.quantity.toString(), 110, y, { align: "center" });
-      doc.text(`₱${item.price * item.quantity}`, 140, y, { align: "right" });
+      doc.text(`P${item.price * item.quantity}`, 140, y, { align: "right" });
       y += 6;
     });
 
@@ -110,7 +110,7 @@ export default function Cart() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    doc.text(`Total: ₱${total.toFixed(2)}`, 140, y, { align: "right" });
+    doc.text(`Total: P${total.toFixed(2)}`, 140, y, { align: "right" });
     y += 10;
 
     // Footer
@@ -322,7 +322,10 @@ export default function Cart() {
                   className="pos-button-secondary"
                   onClick={printReceipt}
                   disabled={cart.length === 0}
-                  style={{ marginRight: '10px' }}
+                  style={{ 
+                    marginRight: '10px',
+                    display: userProfile?.permissions?.print !== false ? 'inline-block' : 'none'
+                  }}
                 >
                   Print Quote
                 </button>

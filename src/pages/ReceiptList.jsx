@@ -117,9 +117,9 @@ export default function ReceiptList() {
           const quantity = typeof item.quantity === 'number' ? item.quantity : 1;
           
           doc.text(itemName, 15, y);
-          doc.text(`₱${price.toFixed(2)}`, 80, y, { align: "right" });
+          doc.text(`P${price.toFixed(2)}`, 80, y, { align: "right" });
           doc.text(quantity.toString(), 110, y, { align: "center" });
-          doc.text(`₱${(price * quantity).toFixed(2)}`, 140, y, { align: "right" });
+          doc.text(`P${(price * quantity).toFixed(2)}`, 140, y, { align: "right" });
           y += 6;
         });
       }
@@ -133,16 +133,16 @@ export default function ReceiptList() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       const total = typeof sale.total === 'number' ? sale.total : 0;
-      doc.text(`Total: ₱${total.toFixed(2)}`, 140, y, { align: "right" });
+      doc.text(`Total: P${total.toFixed(2)}`, 140, y, { align: "right" });
       y += 6;
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       const cash = typeof sale.cash === 'number' ? sale.cash : total;
       const change = typeof sale.change === 'number' ? sale.change : 0;
-      doc.text(`Cash Received: ₱${cash.toFixed(2)}`, 140, y, { align: "right" });
+      doc.text(`Cash Received: P${cash.toFixed(2)}`, 140, y, { align: "right" });
       y += 6;
-      doc.text(`Change: ₱${change.toFixed(2)}`, 140, y, { align: "right" });
+      doc.text(`Change: P${change.toFixed(2)}`, 140, y, { align: "right" });
       y += 10;
 
       // Footer
@@ -226,7 +226,7 @@ export default function ReceiptList() {
                       >
                         Delete
                       </button>
-                      {userProfile?.permissions?.print && (
+                      {userProfile?.permissions?.print !== false && (
                         <button
                           className="pos-button"
                           onClick={() => handlePrint(sale)}

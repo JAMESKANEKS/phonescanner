@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getUserByEmail } from '../services/userService';
+import { auth } from '../firebase/firebase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -21,7 +23,20 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      // First authenticate the user
+      const userCredential = await login(email, password);
+      
+      // Then check their profile status
+      const userProfile = await getUserByEmail(email);
+      
+      if (userProfile && userProfile.status === 'suspended') {
+        // Log out the user immediately
+        await auth.signOut();
+        setError('Your account has been suspended. Please contact the developer for feedback.');
+        return;
+      }
+      
+      // If user is active, proceed to dashboard
       navigate('/dashboard');
     } catch (err) {
       setError('Failed to sign in. Please check your credentials.');

@@ -1,18 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PWAInstallPrompt from '../components/PWAInstallPrompt';
 import ConnectionStatus from '../components/ConnectionStatus';
+import PaymentModal from '../components/PaymentModal';
+import { paymentService } from '../services/paymentService';
 
 function ProtectedRoute({ children, requiredPermission }) {
   const { currentUser, userProfile, loading, refreshUserProfile } = useAuth();
   const [refreshingProfile, setRefreshingProfile] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [hasApprovedPayment, setHasApprovedPayment] = useState(false);
   const location = useLocation();
 
   // Check if user has the required permission
   const hasPermission = requiredPermission && userProfile?.permissions 
     ? userProfile.permissions[requiredPermission] === true 
     : true; // Default to true if no permission required
+
+  // Check for approved payment when permission is denied
+  useEffect(() => {
+    const checkApprovedPayment = async () => {
+      if (currentUser && requiredPermission && !hasPermission) {
+        try {
+          const approved = await paymentService.hasApprovedPayment(currentUser.uid);
+          setHasApprovedPayment(approved);
+          
+          // If payment is approved, refresh user profile to get updated permissions
+          if (approved) {
+            await refreshUserProfile();
+          }
+        } catch (error) {
+          console.error('Error checking approved payment:', error);
+        }
+      }
+    };
+
+    checkApprovedPayment();
+  }, [currentUser, requiredPermission, hasPermission, refreshUserProfile]);
 
   // Handle profile refresh with loading state
   const handleRefreshProfile = async () => {
@@ -25,6 +51,32 @@ function ProtectedRoute({ children, requiredPermission }) {
       console.error('Error refreshing user profile:', error);
     } finally {
       setRefreshingProfile(false);
+    }
+  };
+
+  // Handle payment submission
+  const handlePaymentSubmit = async (reference) => {
+    try {
+      setCheckingPayment(true);
+      
+      // Submit payment request to database
+      const paymentRequest = await paymentService.submitPaymentRequest({
+        userId: currentUser.uid,
+        userEmail: currentUser.email,
+        userName: userProfile?.displayName || currentUser.email,
+        reference: reference,
+        amount: 49,
+        currency: 'PHP',
+        type: 'monthly_subscription'
+      });
+      
+      console.log('Payment request submitted:', paymentRequest);
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Payment submission error:', error);
+      throw error;
+    } finally {
+      setCheckingPayment(false);
     }
   };
 
@@ -60,7 +112,7 @@ function ProtectedRoute({ children, requiredPermission }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If permission is denied, show modal instead of redirecting
+  // If permission is denied, show payment modal instead of redirecting
   if (requiredPermission && !hasPermission) {
     return (
       <>
@@ -102,7 +154,7 @@ function ProtectedRoute({ children, requiredPermission }) {
               textTransform: 'uppercase',
               letterSpacing: '0.04em'
             }}>
-              Access Denied
+              Dashboard Access Locked
             </h2>
             
             <p style={{
@@ -111,15 +163,15 @@ function ProtectedRoute({ children, requiredPermission }) {
               lineHeight: '1.5',
               marginBottom: '24px'
             }}>
-              You don't have permission to access this area. Please contact your administrator or the developer to get the necessary permissions.
+              Pay P49 monthly to unlock dashboard access and receipt printing features.
             </p>
             
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
-                onClick={() => window.history.back()}
+                onClick={() => setShowPaymentModal(true)}
                 style={{
                   padding: '12px 24px',
-                  background: 'linear-gradient(135deg, #1fe6a8, #0fb4ff)',
+                  background: 'linear-gradient(135deg, #36c2ff, #1fe6a8)',
                   color: '#031015',
                   border: 'none',
                   borderRadius: '8px',
@@ -132,51 +184,52 @@ function ProtectedRoute({ children, requiredPermission }) {
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.8)';
+                  e.target.style.boxShadow = '0 8px 20px rgba(54, 194, 255, 0.3)';
                 }}
                 onMouseLeave={(e) => {
                   e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 6px 18px rgba(0, 0, 0, 0.8)';
+                  e.target.style.boxShadow = 'none';
                 }}
               >
-                Go Back
+                Unlock Now - P49/mo
               </button>
               
               <button
-                onClick={handleRefreshProfile}
-                disabled={refreshingProfile}
+                onClick={() => window.history.back()}
                 style={{
                   padding: '12px 24px',
-                  background: refreshingProfile ? '#2a2f3a' : '#31384a',
-                  color: refreshingProfile ? '#6b7280' : '#aab2c5',
+                  background: '#31384a',
+                  color: '#aab2c5',
                   border: '1px solid #31384a',
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '600',
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  cursor: refreshingProfile ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s ease',
-                  opacity: refreshingProfile ? 0.6 : 1
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
                 }}
                 onMouseEnter={(e) => {
-                  if (!refreshingProfile) {
-                    e.target.style.background = '#3d4658';
-                    e.target.style.borderColor = '#4a5568';
-                  }
+                  e.target.style.background = '#3d4658';
+                  e.target.style.borderColor = '#4a5568';
                 }}
                 onMouseLeave={(e) => {
-                  if (!refreshingProfile) {
-                    e.target.style.background = '#31384a';
-                    e.target.style.borderColor = '#31384a';
-                  }
+                  e.target.style.background = '#31384a';
+                  e.target.style.borderColor = '#31384a';
                 }}
               >
-                {refreshingProfile ? 'Refreshing...' : 'Refresh'}
+                Go Back
               </button>
             </div>
           </div>
         </div>
+        
+        {showPaymentModal && (
+          <PaymentModal
+            onClose={() => setShowPaymentModal(false)}
+            onSubmit={handlePaymentSubmit}
+          />
+        )}
         
         <PWAInstallPrompt />
         <ConnectionStatus />

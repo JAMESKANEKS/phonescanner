@@ -26,10 +26,22 @@ export function AuthProvider({ children }) {
       try {
         const profile = await getUserProfile(currentUser.uid);
         setUserProfile(profile);
+        
+        // Check if user is suspended and auto-logout
+        if (profile && profile.status === 'suspended') {
+          console.log('User is suspended, logging out...');
+          await signOut(auth);
+          setCurrentUser(null);
+          setUserProfile(null);
+          return false; // Indicate suspension
+        }
+        return true; // Indicate active status
       } catch (error) {
         console.error('Error refreshing user profile:', error);
+        return false;
       }
     }
+    return false;
   };
 
   function login(email, password) {
@@ -71,6 +83,15 @@ export function AuthProvider({ children }) {
         try {
           const profile = await getUserProfile(user.uid);
           setUserProfile(profile);
+          
+          // Check if user is suspended and auto-logout
+          if (profile && profile.status === 'suspended') {
+            console.log('User is suspended, logging out...');
+            await signOut(auth);
+            setCurrentUser(null);
+            setUserProfile(null);
+            return;
+          }
         } catch (error) {
           console.error('Error loading user profile:', error);
         }
@@ -83,6 +104,34 @@ export function AuthProvider({ children }) {
 
     return unsubscribe;
   }, []);
+
+  // Periodic status check for real-time suspension monitoring
+  useEffect(() => {
+    if (!currentUser || !userProfile) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const profile = await getUserProfile(currentUser.uid);
+        
+        // Check if user status changed to suspended
+        if (profile && profile.status === 'suspended' && userProfile.status !== 'suspended') {
+          console.log('User status changed to suspended, logging out...');
+          await signOut(auth);
+          setCurrentUser(null);
+          setUserProfile(null);
+        }
+        
+        // Update profile if it changed
+        if (profile && profile.status !== userProfile.status) {
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error('Error checking user status:', error);
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [currentUser, userProfile]);
 
   const value = {
     currentUser,
