@@ -15,6 +15,7 @@ import UserManagement from "./pages/UserManagement";
 import Permissions from "./pages/Permissions";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { offlineStorage } from "./services/offlineStorage";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 // Initialize offline storage
 offlineStorage.init().catch(console.error);
@@ -59,6 +60,7 @@ function AppContent() {
         <main className="pos-main">
           <Outlet />
         </main>
+        <PWAInstallPrompt />
       </div>
     </CartProvider>
   );
